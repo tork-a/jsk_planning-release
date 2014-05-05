@@ -1,0 +1,12 @@
+Source: ros-hydro-pddl-planner-viewer
+Section: misc
+Priority: extra
+Maintainer: Ryohei Ueda <ueda@jsk.t.u-tokyo.ac.jp>
+Build-Depends: debhelper (>= 7.0.50~), ros-hydro-catkin, ros-hydro-pddl-planner
+Homepage: 
+Standards-Version: 3.9.2
+
+Package: ros-hydro-pddl-planner-viewer
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, ros-hydro-pddl-planner
+Description: a viewer of pddl_planner.
