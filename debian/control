@@ -1,0 +1,12 @@
+Source: ros-hydro-jsk-planning
+Section: misc
+Priority: extra
+Maintainer: Kei Okada <k-okada@jsk.t.u-tokyo.ac.jp>
+Build-Depends: debhelper (>= 7.0.50~), ros-hydro-catkin
+Homepage: http://ros.org/wiki/jsk_planning
+Standards-Version: 3.9.2
+
+Package: ros-hydro-jsk-planning
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, ros-hydro-pddl-msgs, ros-hydro-pddl-planner, ros-hydro-pddl-planner-viewer, ros-hydro-task-compiler
+Description: Metapackage that contains planning package for jsk-ros-pkg
