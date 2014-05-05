@@ -1,0 +1,12 @@
+Source: ros-groovy-pddl-planner
+Section: misc
+Priority: extra
+Maintainer: Ryohei Ueda <ueda@jsk.t.u-tokyo.ac.jp>
+Build-Depends: debhelper (>= 7.0.50~), ros-groovy-actionlib, ros-groovy-catkin, ros-groovy-downward, ros-groovy-ff, ros-groovy-ffha, ros-groovy-pddl-msgs, ros-groovy-rospy
+Homepage: 
+Standards-Version: 3.9.2
+
+Package: ros-groovy-pddl-planner
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, ros-groovy-actionlib, ros-groovy-downward, ros-groovy-ff, ros-groovy-ffha, ros-groovy-pddl-msgs, ros-groovy-rospy
+Description: pddl planner wrappers
