@@ -2,6 +2,9 @@
 Changelog for package task_compiler
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.1.4 (2015-06-11)
+------------------
+
 0.1.3 (2015-01-31)
 ------------------
 * remove rosbuild stuff, change to pure catkin packages
