@@ -1,0 +1,26 @@
+ros-indigo-jsk-planning (0.1.4-0trusty) trusty; urgency=high
+
+
+
+ -- Kei Okada <k-okada@jsk.t.u-tokyo.ac.jp>  Wed, 10 Jun 2015 15:00:00 -0000
+
+ros-indigo-jsk-planning (0.1.3-0trusty) trusty; urgency=high
+
+
+
+ -- Kei Okada <k-okada@jsk.t.u-tokyo.ac.jp>  Fri, 30 Jan 2015 15:00:00 -0000
+
+ros-indigo-jsk-planning (0.1.2-0trusty) trusty; urgency=high
+
+  * add jsk_planning meta package
+  * Contributors: Kei Okada
+
+ -- Kei Okada <k-okada@jsk.t.u-tokyo.ac.jp>  Mon, 05 May 2014 15:00:00 -0000
+
+ros-indigo-jsk-planning (0.1.1-0trusty) trusty; urgency=high
+
+
+
+ -- Kei Okada <k-okada@jsk.t.u-tokyo.ac.jp>  Sun, 04 May 2014 15:00:00 -0000
+
+
