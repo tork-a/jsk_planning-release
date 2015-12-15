@@ -1,6 +1,6 @@
 <package>
   <name>pddl_planner</name>
-  <version>0.1.5</version>
+  <version>0.1.6</version>
   <description>pddl planner wrappers</description>
 
   <maintainer email="ueda@jsk.t.u-tokyo.ac.jp">Ryohei Ueda</maintainer>
@@ -29,6 +29,9 @@
   <run_depend>downward</run_depend>
   <run_depend>rospy</run_depend>
   <run_depend>actionlib</run_depend>
+
+  <!-- NOTE: downward depends on time, but on hydro it is not released -->
+  <run_depend>time</run_depend>
 
   <export>
 
