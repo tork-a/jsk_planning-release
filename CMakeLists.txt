@@ -10,8 +10,12 @@ catkin_package(
     LIBRARIES # TODO
 )
 
-install(DIRECTORY launch demos src samples
+install(DIRECTORY launch demos src samples test
         DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
         USE_SOURCE_PERMISSIONS)
 
-
+if(CATKIN_ENABLE_TESTING)
+  find_package(catkin REQUIRED COMPONENTS rostest)
+  add_rostest(test/test-simple-failure-torelant.test)
+  add_rostest(test/test-sample-pddl.test)
+endif()
