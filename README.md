@@ -1,3 +1,31 @@
+## jsk_planning (indigo) - 0.1.7-0
+
+The packages in the `jsk_planning` repository were released into the `indigo` distro by running `/var/lib/jenkins/send_to_bloom.py jsk-ros-pkg jsk_planning` on `Sat, 28 May 2016 03:24:05 -0000`
+
+These packages were released:
+- `jsk_planning`
+- `pddl_msgs`
+- `pddl_planner`
+- `pddl_planner_viewer`
+- `task_compiler`
+
+Version of package(s) in repository `jsk_planning`:
+
+- upstream repository: https://github.com/jsk-ros-pkg/jsk_planning
+- release repository: https://github.com/tork-a/jsk_planning-release.git
+- rosdistro version: `0.1.6-0`
+- old version: `0.1.6-0`
+- new version: `0.1.7-0`
+
+Versions of tools used:
+
+- bloom version: `0.5.21`
+- catkin_pkg version: `0.2.10`
+- rosdep version: `0.11.5`
+- rosdistro version: `0.4.7`
+- vcstools version: `0.1.38`
+
+
 ## jsk_planning (indigo) - 0.1.6-0
 
 The packages in the `jsk_planning` repository were released into the `indigo` distro by running `/var/lib/jenkins/send_to_bloom.py jsk-ros-pkg jsk_planning` on `Tue, 15 Dec 2015 19:35:41 -0000`
