@@ -3,12 +3,7 @@ project(pddl_planner)
 
 find_package(catkin REQUIRED COMPONENTS)
 
-catkin_package(
-    DEPENDS pddl_msgs #
-    CATKIN_DEPENDS # TODO
-    INCLUDE_DIRS # TODO include
-    LIBRARIES # TODO
-)
+catkin_package()
 
 install(DIRECTORY launch demos src samples test
         DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
@@ -18,4 +13,5 @@ if(CATKIN_ENABLE_TESTING)
   find_package(catkin REQUIRED COMPONENTS rostest)
   add_rostest(test/test-simple-failure-torelant.test)
   add_rostest(test/test-sample-pddl.test)
+  add_rostest(test/test-durative-two-robot-tablecloth.test)
 endif()
