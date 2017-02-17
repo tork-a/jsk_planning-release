@@ -111,12 +111,14 @@
           constants
           predicates
           functions
-          action)
+          action
+          use-durative-action)
   )
 (defmethod pddl-domain
-  (:init (&key (name nil) ((:requirements req) nil) (file nil))
+  (:init (&key (name nil) ((:requirements req) nil) (file nil) (durative-action nil))
     (if name (setq domain-name name))
     (if req (setq requirements req))
+    (if durative-action (setq use-durative-action durative-action))
     self)
   (:name (&optional n)
     (if n (setq domain-name n))
@@ -140,6 +142,9 @@
   (:action (&optional ac)
     (if ac (setq action ac))
     action)
+  (:use-durative-action (&optional use-dur)
+    (if use-dur (setq use-durative-action use-dur))
+    use-durative-action)
   (:add (&key
          ((:requirements req) nil)
          ((:types typ) nil)
@@ -194,17 +199,25 @@
   :slots (name
           parameters
           precondition
-          effect)
+          effect
+          duration
+          use-durative-action
+          )
   )
 (defmethod pddl-action
   (:init (&key ((:name n) nil)
                ((:parameters par) nil)
                ((:precondition pre) nil)
-               ((:effect ef) nil))
+               ((:effect ef) nil)
+               ((:duration dur) nil)
+               ((:use-durative-action use-dur) nil)
+               )
     (if n (setq name n))
     (if pre (setq precondition pre))
     (if par (setq parameters par))
     (if ef (setq effect ef))
+    (if dur (setq duration dur))
+    (if use-dur (setq use-durative-action use-dur))
     self)
   (:name (&optional n)
     (if n (setq name n))
@@ -220,6 +233,11 @@
   (:effect (&optional ef)
     (if ef (setq effect ef))
     effect)
+  (:duration (&optional dur)
+    (if dur (setq duration dur))
+    duration)
+  (:use-durative-action (&optional use-dur)
+    (if use-dur (setq use-durative-action use-dur)))
   (:add (&key ((:effect ef) nil)
               ((:parameters par) nil)
               ((:precondition pre) nil)
@@ -227,6 +245,7 @@
     (if ef  (setq effect       (append effect       (list ef))))
     (if par (setq parameters   (append parameters   (list par))))
     (if pre (setq precondition (append precondition (list par))))
+    (if dur (setq duration     (append duration     (list dur))))
     self)
   (:action-sexp ()
     `(:action ,name
@@ -236,23 +255,33 @@
                                            (append (butlast x) '(-) (last x))))
                                      parameters))
        :precondition (and ,@precondition)
-       :effect (and ,@effect)))
+       :effect (and ,@effect)
+       :duration (,@duration)
+       ))
   (:ros-message ()
     (instance pddl_msgs::PDDLAction :init
               :name (string name)
               :parameters
               (if parameters
-                  (list->simple-string
-                   (list (flatten (mapcar #'(lambda (x)
-                                              (if (= (length x) 1)
-                                                  (list (car x))
-                                                (append (butlast x) '(-) (last x))))
-                                          parameters))))
+                  (cond
+                   (use-durative-action
+                    (format nil "~A" (car `,parameters)))
+                   (t
+                    (list->simple-string
+                     (list (flatten (mapcar #'(lambda (x)
+                                                (if (= (length x) 1)
+                                                    (list (car x))
+                                                  (append (butlast x) '(-) (last x))))
+                                            parameters)))
+                     )))
                 "()")
               :precondition
               (format nil "~A" `(and ,@precondition))
               :effect
-              (format nil "~A" `(and ,@effect))))
+              (format nil "~A" `(and ,@effect))
+              :action_duration
+              (format nil "~A" (car `,duration))
+              ))
   )
 
 ;; macro for define domain and problem
@@ -310,7 +339,12 @@
           domain
           states
           actions
-          objects)
+          objects
+          tl-actions
+          relationship-lst
+          all-relationship-lst
+          use-durative-action
+          )
   )
 
 (defmethod pddl-state
@@ -322,6 +356,8 @@
                )
     (if n (setq name n))
     (send self :domain dm)
+    (when (send dm :use-durative-action)
+      (setq use-durative-action t))
     (send self :initial-state st)
     (if ac (setq actions ac))
     (send self :objects obj)
@@ -332,8 +368,13 @@
   (:domain (&optional dm)
     (when dm
       (setq domain dm)
+      (when (send dm :use-durative-action)
+        (setq use-durative-action t))
       (send self :add-constants))
     domain)
+  (:use-durative-action (&optional use-dur)
+    (if use-dur (setq use-durative-action use-dur))
+    use-durative-action)
   (:initial-state (&optional st)
     (when st
       (let (tmp-st)
@@ -355,6 +396,10 @@
     objects)
   (:states (&rest args)
     (forward-message-to states args))
+  (:relationship ()
+    relationship-lst)
+  (:all-relationship ()
+    all-relationship-lst)
   (:add-constants ()
     (let (obj (cnst (send domain :constants)) sym)
       (when cnst
@@ -375,37 +420,244 @@
       (setq actions (append actions (list ac)))
       (setq states (append states (list (send self :apply-action (car (last states)) ac)))))
     actions)
+  (:generate-timeline-actions ()
+    (let (tmp-actions)
+      (dolist (ac actions)
+        (setq tmp-actions (append tmp-actions (list (list (car ac) 'start (cddr ac)))))
+        (setq tmp-actions (append tmp-actions (list (list (+ (car ac) (cadr ac)) 'end (cddr ac)))))
+        )
+      (setq tmp-actions (sort tmp-actions #'<= #'car))
+      (setq tl-actions tmp-actions)
+      ))
+
+  (:timeline-actions ()
+    tl-actions)
+
   (:generate-states ()
-    (when (and states actions)
-      (setq states (list (car states)))
-      (let ((tmp-st (car states)))
-        (dolist (act actions)
-          (setq tmp-st (send self :apply-action tmp-st act))
-          (push tmp-st states))
-        (setq states (nreverse states))))
+    (cond
+     ((send self :use-durative-action)
+      (when (and states actions)
+        (setq states (list (car states)))
+        (let ((tmp-st (car states)))
+          (send self :generate-timeline-actions)
+          (dolist (act tl-actions)
+            (setq tmp-st (send self :apply-action tmp-st act))
+            (push tmp-st states))
+          (setq states (nreverse states))
+          )))
+     (t
+      (when (and states actions)
+        (setq states (list (car states)))
+        (let ((tmp-st (car states)))
+          (dolist (act actions)
+            (setq tmp-st (send self :apply-action tmp-st act))
+            (push tmp-st states))
+          (setq states (nreverse states))))))
     )
   (:check-type ()
     ;;TODO
     )
+
+  (:generate-single-relationship ()
+    (let ((cnt 0) pcond action param st)
+      (unless (send self :use-durative-action)
+        (return-from :generate-single-relationship nil))
+      (dolist (ac tl-actions)
+        (when (member 'start ac)
+          (setq action (find-if #'(lambda (x)
+                                    (equal (caaddr ac) (read-from-string (send x :name))))
+                                (send domain :action)))
+          (setq pcond (send action :precondition))
+          (let (tmp-arg (arg-cnt 0))
+            (dolist (para (car (send action :parameters)))
+              (when (eq 0 (mod arg-cnt 3))
+                (setq tmp-arg (append tmp-arg (list para))))
+              (setq arg-cnt (+ arg-cnt 1)))
+            (setq param (list tmp-arg (cdaddr ac))))
+          (let ((ccnt 0) check-lst)
+            (while t
+              (setq st (elt (send self :states) (- cnt ccnt)))
+              (setq check-lst (mapcar #'(lambda (p)
+                                          (let (ret)
+                                            (setq ret
+                                                  (cond
+                                                   ((or (member (cadr ac) p) (member 'over p))
+                                                    (send self :check-state st p param))
+                                                   (t t)))
+                                            (cond
+                                             ((null ret) ;; exists relationship
+                                              p)
+                                             (t nil))))
+                                      pcond))
+              (cond
+               ((or (eq cnt 0) (eq cnt ccnt))
+                (return))
+               ((every #'null check-lst)
+                (setq ccnt (+ ccnt 1)))
+               (t
+                (let (tmp-cl)
+                  (dolist (cl check-lst)
+                    (when cl (setq tmp-cl (append tmp-cl (list (caddr cl))))))
+                  (setq check-lst tmp-cl))
+                (let (tmp-cl)
+                  (dolist (cl check-lst)
+                    (setq tmp-cl
+                          (append
+                           tmp-cl
+                           (list
+                            (cond
+                             ((equal (car cl) 'not)
+                              (cons 'not (list
+                                          (mapcar #'(lambda(x)
+                                                      (let ((pos (position x (car param))))
+                                                        (if pos
+                                                            (elt (cadr param) pos)
+                                                          x)))
+                                                  (cadr cl)))))
+                             (t
+                              (mapcar #'(lambda(x)
+                                          (let ((pos (position x (car param))))
+                                            (if pos
+                                                (elt (cadr param) pos)
+                                              x)))
+                                      cl)))))))
+                  (setq check-lst tmp-cl)
+                  )
+                (setq relationship-lst (append relationship-lst (list (list ac (elt (send self :timeline-actions) (- cnt ccnt)) (car check-lst)))))
+                (when (equal ccnt 0)
+                  (ros::ros-warn "LPG plan error!! action(~A)[~A]'s precondition doesn't match state(~A)[~A]. Error state is ~A." cnt ac (- cnt ccnt) (elt (send self :states) (- cnt ccnt)) (car check-lst))
+                  (setq relationship-lst nil)
+                  (return-from :generate-single-relationship 'error)
+                  )
+                (return)
+                )))))
+        (setq cnt (+ cnt 1))
+        )
+      t
+      ))
+
+  (:generate-all-relationship ()
+    (let ((cnt 0) pcond action param st)
+      (unless (send self :use-durative-action)
+        (return-from :generate-all-relationship nil))
+      (dolist (ac tl-actions)
+        (when (member 'start ac)
+          (setq action (find-if #'(lambda (x)
+                                    (equal (caaddr ac) (read-from-string (send x :name))))
+                                (send domain :action)))
+          (setq pcond (send action :precondition))
+          (let (tmp-arg (arg-cnt 0))
+            (dolist (para (car (send action :parameters)))
+              (when (eq 0 (mod arg-cnt 3))
+                (setq tmp-arg (append tmp-arg (list para))))
+              (setq arg-cnt (+ arg-cnt 1)))
+            (setq param (list tmp-arg (cdaddr ac))))
+          (dolist (pcon pcond)
+            (let ((ccnt 0) detailed-condition)
+              (while t
+                (setq st (elt (send self :states) (- cnt ccnt)))
+                (when (or (eq cnt 0) (eq cnt ccnt))
+                  (return))
+                (setq ret
+                      (cond
+                       ((or (member (cadr ac) pcon) (member 'over pcon))
+                        (send self :check-state st pcon param))
+                       (t t)))
+                (cond
+                 (ret ;; no relationship
+                  (setq ccnt (+ ccnt 1)))
+                 (t ;; exists relationship
+                  (setq detailed-condition (caddr pcon)) ;; remove (over all), (at start), (at end)
+                  (setq detailed-condition
+                        (cond
+                         ((equal (car detailed-condition) 'not)
+                          (cons 'not (list
+                                      (mapcar #'(lambda(x)
+                                                  (let ((pos (position x (car param))))
+                                                    (if pos
+                                                        (elt (cadr param) pos)
+                                                      x)))
+                                              (cadr detailed-condition)))))
+                         (t
+                          (mapcar #'(lambda(x)
+                                      (let ((pos (position x (car param))))
+                                        (if pos
+                                            (elt (cadr param) pos)
+                                          x)))
+                                  detailed-condition))))
+                  (setq all-relationship-lst (append all-relationship-lst (list (list ac (elt (send self :timeline-actions) (- cnt ccnt)) detailed-condition))))
+                  (return)
+                  ))))))
+        (setq cnt (+ cnt 1))
+        )
+      t
+      ))
+
   (:check-condition (st act)
-    (let ((action (find-if #'(lambda (x) (equal (car act) (intern (string-upcase (send x :name))))) (send domain :action)))
+    (let ((action (find-if #'(lambda (x)
+                               (equal
+                                (or
+                                 (and (send self :use-durative-action)
+                                      (caaddr act))
+                                 (car act))
+                                (intern (string-upcase (send x :name))))) (send domain :action)))
           param pcond)
       (unless action
         (return-from :check-condition nil))
-      (setq param (list (flatten (mapcar #'(lambda(x) (butlast x 1)) (send action :parameters))) (cdr act))
-            pcond (send action :precondition))
-      (null (some #'null
-                  (mapcar #'(lambda (p)
-                              (send self :check-state st p param))
-                          pcond)))
+      (cond
+       ((send self :use-durative-action)
+        (let (tmp-arg (cnt 0))
+          (dolist (para (car (send action :parameters)))
+            (when (eq 0 (mod cnt 3))
+              (setq tmp-arg (append tmp-arg (list para))))
+            (setq cnt (+ cnt 1))
+            )
+          (setq param (list tmp-arg (cdaddr act)))
+          ))
+       (t
+        (setq param (list (flatten (mapcar #'(lambda(x) (butlast x 1)) (send action :parameters))) (cdr act)))))
+      (setq pcond (send action :precondition))
+      (cond
+       ((send self :use-durative-action)
+        (null (some #'null
+                    (mapcar #'(lambda (p)
+                                (cond
+                                 ((or (member (cadr act) p) (member 'over p))
+                                  (send self :check-state st p param))
+                                 (t
+                                  t)))
+                            pcond))))
+       (t
+        (null (some #'null
+                    (mapcar #'(lambda (p)
+                                (send self :check-state st p param))
+                            pcond)))
+        ))
       ))
   (:check-state (st s param)
-    (let ((ss (mapcar #'(lambda(x)
-                          (let ((pos (position x (car param))))
-                            (if pos
-                                (elt (cadr param) pos)
-                              x)))
-                      s)))
+    (let ((ss
+           (cond
+            ((send self :use-durative-action)
+             (mapcar #'(lambda(x)
+                         (let ((pos (position x (car param))))
+                           (if pos
+                               (elt (cadr param) pos)
+                             x)))
+
+
+                     (cond
+                      ((or (member 'over s) (member 'start s) (member 'end s))
+                       (caddr s))
+                      (t
+                       s)))
+             )
+            (t
+             (mapcar #'(lambda(x)
+                         (let ((pos (position x (car param))))
+                           (if pos
+                               (elt (cadr param) pos)
+                             x)))
+                     s)))))
       (case (car ss)
         ('not
          (if (send self :check-state st (cadr ss) param)
@@ -455,24 +707,60 @@
       ))
   (:apply-action (st act)
     (if (send self :check-condition st act)
-        (let ((action (find-if #'(lambda (x) (equal (car act) (intern (string-upcase (send x :name))))) (send domain :action)))
+        (let ((action (find-if #'(lambda (x)
+                                   (equal
+                                    (or
+                                     (and (send self :use-durative-action)
+                                          (caaddr act))
+                                     (car act))
+                                    (intern (string-upcase (send x :name))))) (send domain :action)))
               param effect (tmp-st st))
           (unless action
             (return-from :apply-action nil))
-          (setq param (list (flatten (mapcar #'(lambda(x) (butlast x 1)) (send action :parameters))) (cdr act))
-                effect (send action :effect))
+          (cond
+           ((send self :use-durative-action)
+            (let (tmp-arg (cnt 0))
+              (dolist (para (car (send action :parameters)))
+                (when (eq 0 (mod cnt 3))
+                  (setq tmp-arg (append tmp-arg (list para))))
+                (setq cnt (+ cnt 1))
+                )
+              (setq param (list tmp-arg (cdaddr act)))
+              ))
+           (t
+            (setq param (list (flatten (mapcar #'(lambda(x) (butlast x 1)) (send action :parameters))) (cdr act)))))
+          (setq effect (send action :effect))
           (dolist (e effect)
-            (setq tmp-st (send self :change-state tmp-st e param)))
+            (cond
+             ((send self :use-durative-action)
+              (when (member (cadr act) e)
+                (setq tmp-st (send self :change-state tmp-st e param))
+                ))
+             (t
+              (setq tmp-st (send self :change-state tmp-st e param))
+              )))
           tmp-st)
-      nil)
-    )
+      (progn (ros::ros-error "Condition Error! Return from :apply-action nil")
+             (return-from :apply-action nil)
+             )))
+
   (:change-state (st e param)
-    (let ((ee (mapcar #'(lambda(x)
-                          (let ((pos (position x (car param))))
-                            (if pos
-                                (elt (cadr param) pos)
-                              x)))
-                      e))
+    (let ((ee
+           (cond
+            ((send self :use-durative-action)
+             (mapcar #'(lambda(x)
+                         (let ((pos (position x (car param))))
+                           (if pos
+                               (elt (cadr param) pos)
+                             x)))
+                     (caddr e)))
+            (t
+             (mapcar #'(lambda(x)
+                         (let ((pos (position x (car param))))
+                           (if pos
+                               (elt (cadr param) pos)
+                             x)))
+                     e))))
           (tmp-st st))
       (case (car ee)
         ('increase
