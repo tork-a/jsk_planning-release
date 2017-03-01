@@ -2,6 +2,9 @@
 Changelog for package pddl_planner
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.1.9 (2017-03-01)
+------------------
+
 0.1.8 (2017-02-17)
 ------------------
 * fix for  kinetic (`#52  <https://github.com/jsk-ros-pkg/jsk_pr2eus/issues/52>`_ )
