@@ -1,52 +1,9 @@
-## pddl_planner
+jsk_planning [![Build Status](https://travis-ci.org/jsk-ros-pkg/jsk_planning.png?branch=master)](https://travis-ci.org/jsk-ros-pkg/jsk_planning)
+============
 
-This package provides ROS interface for ff/ffha/downward planners
 
-- ff: [J. Hoffmann, B. Nebel, "The FF Planning System: Fast Plan Generation Through Heuristic Search"](http://www.ai.mit.edu/courses/16.412J/ff.ps), in: Journal of Artificial Intelligence Research, Vol. 14, 2001, Pages 253-302.
-- ffha: [Emil Keyder, Hector Geffner, "The FF(ha) Planner for Planning with Action Costs"](http://ipc.informatik.uni-freiburg.de/Planners?action=AttachFile&do=view&target=ffha.pdf)
-- downward: http://www.fast-downward.org/
-
-### demos/sample-pddl
-
-- bare example
-
- - ff example
-    ```
-roscd pddl_planner/demos/sample-pddl/
-rosrun ff ff -f ./sample-problem.pddl -o sample-domain.pddl
-    ```
-
- - ffha example
-    ```
-roscd pddl_planner/demos/sample-pddl/
-rosrun ffha ffha -f ./sample-problem.pddl -o sample-domain.pddl
-    ```
-
- - downward example
-    ```
-roscd pddl_planner/demos/sample-pddl/
-rosrun downward plan sample-domain.pddl ./sample-problem.pddl ipc seq-sat-lama-2011 --plan-file sample.plan
-    ```
-
-- ros example
-
-  This package provides ROS actionlib interface for planners, using API defined in [pddl_msgs](https://github.com/jsk-ros-pkg/jsk_planning/blob/master/pddl/pddl_msgs/action/PDDLPlanner.action), see [pddl_planner/demos/sample-pddl/sample-client.py](https://github.com/jsk-ros-pkg/jsk_planning/blob/master/pddl/pddl_planner/demos/sample-pddl/sample-client.py) for cliet example.
-
- - ff example
-    ```
-roslaunch pddl_planner pddl_ff.launch
-rosrun pddl_planner sample-client.py --text
-   ```
-
- - ffha example
-   ```
-roslaunch pddl_planner pddl_ffha.launch
-rosrun pddl_planner sample-client.py --text
-   ```
-
- - downward example
-    ```
-roslaunch pddl_planner pddl_downward.launch
-rosrun pddl_planner sample-client.py --text
-   ```
-
+| Package              | Indigo (Saucy)                                                                                                                                                                                   | Indigo (Trusty)                                                                                                                                                                                    | Jade (Trusty)                                                                                                                                                                                      | Jade (Vivid)                                                                                                                                                                                     | Kinetic (Wily)                                                                                                                                                                                 | Kinetic (Xenial)                                                                                                                                                                                     |
+|:---------------------|:-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| jsk_planning (armhf) | [![Build Status](http://build.ros.org/job/Ibin_arm_uShf__jsk_planning__ubuntu_saucy_armhf__binary/badge/icon)](http://build.ros.org/job/Ibin_arm_uShf__jsk_planning__ubuntu_saucy_armhf__binary) | [![Build Status](http://build.ros.org/job/Ibin_arm_uThf__jsk_planning__ubuntu_trusty_armhf__binary/badge/icon)](http://build.ros.org/job/Ibin_arm_uThf__jsk_planning__ubuntu_trusty_armhf__binary) | [![Build Status](http://build.ros.org/job/Jbin_arm_uThf__jsk_planning__ubuntu_trusty_armhf__binary/badge/icon)](http://build.ros.org/job/Jbin_arm_uThf__jsk_planning__ubuntu_trusty_armhf__binary) | [![Build Status](http://build.ros.org/job/Jbin_arm_uVhf__jsk_planning__ubuntu_vivid_armhf__binary/badge/icon)](http://build.ros.org/job/Jbin_arm_uVhf__jsk_planning__ubuntu_vivid_armhf__binary) | [![Build Status](http://build.ros.org/job/Kbin_arm_uWhf__jsk_planning__ubuntu_wily_armhf__binary/badge/icon)](http://build.ros.org/job/Kbin_arm_uWhf__jsk_planning__ubuntu_wily_armhf__binary) | [![Build Status](http://build.ros.org/job/Kbin_uxhf_uXhf__jsk_planning__ubuntu_xenial_armhf__binary/badge/icon)](http://build.ros.org/job/Kbin_uxhf_uXhf__jsk_planning__ubuntu_xenial_armhf__binary) |
+| jsk_planning (i386)  | [![Build Status](http://build.ros.org/job/Ibin_uS32__jsk_planning__ubuntu_saucy_i386__binary/badge/icon)](http://build.ros.org/job/Ibin_uS32__jsk_planning__ubuntu_saucy_i386__binary)           | [![Build Status](http://build.ros.org/job/Ibin_uT32__jsk_planning__ubuntu_trusty_i386__binary/badge/icon)](http://build.ros.org/job/Ibin_uT32__jsk_planning__ubuntu_trusty_i386__binary)           | [![Build Status](http://build.ros.org/job/Jbin_uT32__jsk_planning__ubuntu_trusty_i386__binary/badge/icon)](http://build.ros.org/job/Jbin_uT32__jsk_planning__ubuntu_trusty_i386__binary)           | [![Build Status](http://build.ros.org/job/Jbin_uV32__jsk_planning__ubuntu_vivid_i386__binary/badge/icon)](http://build.ros.org/job/Jbin_uV32__jsk_planning__ubuntu_vivid_i386__binary)           | [![Build Status](http://build.ros.org/job/Kbin_uW32__jsk_planning__ubuntu_wily_i386__binary/badge/icon)](http://build.ros.org/job/Kbin_uW32__jsk_planning__ubuntu_wily_i386__binary)           | [![Build Status](http://build.ros.org/job/Kbin_uX32__jsk_planning__ubuntu_xenial_i386__binary/badge/icon)](http://build.ros.org/job/Kbin_uX32__jsk_planning__ubuntu_xenial_i386__binary)             |
+| jsk_planning (amd64) | [![Build Status](http://build.ros.org/job/Ibin_uS64__jsk_planning__ubuntu_saucy_amd64__binary/badge/icon)](http://build.ros.org/job/Ibin_uS64__jsk_planning__ubuntu_saucy_amd64__binary)         | [![Build Status](http://build.ros.org/job/Ibin_uT64__jsk_planning__ubuntu_trusty_amd64__binary/badge/icon)](http://build.ros.org/job/Ibin_uT64__jsk_planning__ubuntu_trusty_amd64__binary)         | [![Build Status](http://build.ros.org/job/Jbin_uT64__jsk_planning__ubuntu_trusty_amd64__binary/badge/icon)](http://build.ros.org/job/Jbin_uT64__jsk_planning__ubuntu_trusty_amd64__binary)         | [![Build Status](http://build.ros.org/job/Jbin_uV64__jsk_planning__ubuntu_vivid_amd64__binary/badge/icon)](http://build.ros.org/job/Jbin_uV64__jsk_planning__ubuntu_vivid_amd64__binary)         | [![Build Status](http://build.ros.org/job/Kbin_uW64__jsk_planning__ubuntu_wily_amd64__binary/badge/icon)](http://build.ros.org/job/Kbin_uW64__jsk_planning__ubuntu_wily_amd64__binary)         | [![Build Status](http://build.ros.org/job/Kbin_uX64__jsk_planning__ubuntu_xenial_amd64__binary/badge/icon)](http://build.ros.org/job/Kbin_uX64__jsk_planning__ubuntu_xenial_amd64__binary)           |
