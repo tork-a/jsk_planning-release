@@ -1,0 +1,12 @@
+Source: ros-kinetic-task-compiler
+Section: misc
+Priority: extra
+Maintainer: Ryohei Ueda <ueda@jsk.t.u-tokyo.ac.jp>
+Build-Depends: debhelper (>= 9.0.0), ros-kinetic-catkin, ros-kinetic-roseus-smach, ros-kinetic-rostest
+Homepage: http://ros.org/wiki/task_compiler
+Standards-Version: 3.9.2
+
+Package: ros-kinetic-task-compiler
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, ros-kinetic-pddl-planner, ros-kinetic-roseus-smach
+Description: task_compiler Compiler that translate task description in PDDL (Planning Domain Description Language) to SMACH (state machine based execution and coordination system) description.
