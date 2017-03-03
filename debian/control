@@ -1,0 +1,12 @@
+Source: ros-jade-pddl-planner
+Section: misc
+Priority: extra
+Maintainer: Ryohei Ueda <ueda@jsk.t.u-tokyo.ac.jp>
+Build-Depends: debhelper (>= 9.0.0), ros-jade-actionlib, ros-jade-catkin, ros-jade-pddl-msgs, ros-jade-rospy
+Homepage: 
+Standards-Version: 3.9.2
+
+Package: ros-jade-pddl-planner
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, ros-jade-actionlib, ros-jade-downward, ros-jade-ff, ros-jade-ffha, ros-jade-lpg-planner, ros-jade-pddl-msgs, ros-jade-rospy, time
+Description: pddl planner wrappers
