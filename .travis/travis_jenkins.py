@@ -37,6 +37,7 @@ CONFIGURE_XML = '''<?xml version='1.0' encoding='UTF-8'?>
        CATKIN_PARALLEL_TEST_JOBS = %(CATKIN_PARALLEL_TEST_JOBS)s&lt;br&gt;
        BUILDING_PKG = %(BUILD_PKGS)s&lt;br&gt;
        ROS_REPOSITORY_PATH = %(ROS_REPOSITORY_PATH)s&lt;br&gt;
+       ROSDEP_ADDITIONAL_OPTIONS = %(ROSDEP_ADDITIONAL_OPTIONS)s&lt;br&gt;
        DOCKER_RUN_OPTION = %(DOCKER_RUN_OPTION)s&lt;br&gt;
   </description>
   <keepDependencies>false</keepDependencies>
@@ -88,7 +89,7 @@ WORKSPACE=`pwd`
 trap "pwd; sudo rm -fr $WORKSPACE/${BUILD_TAG} || echo 'ok'" EXIT
 
 # try git clone until success
-until git clone http://github.com/%(TRAVIS_REPO_SLUG)s ${BUILD_TAG}/%(TRAVIS_REPO_SLUG)s
+until git clone https://github.com/%(TRAVIS_REPO_SLUG)s ${BUILD_TAG}/%(TRAVIS_REPO_SLUG)s
 do
   echo "Retrying"
 done
@@ -109,19 +110,13 @@ if [ "%(REPOSITORY_NAME)s" = "jsk_travis" ]; then
   mkdir .travis; cp -r * .travis # need to copy, since directory starting from . is ignoreed by catkin build
 fi
 
-# remove containers created/exited more than 48 hours ago
-timeout 10s sudo docker ps -a > /tmp/$$.docker_ps_a.txt || exit 1  # check docker isn't held up
-for container in `cat /tmp/$$.docker_ps_a.txt | egrep '^.*days ago' | awk '{print $1}'`; do
-     sudo docker rm $container || echo ok
-done
-rm -f /tmp/$$.docker_ps_a.txt
-
 # run watchdog for kill orphan docker container
 .travis/travis_watchdog.py %(DOCKER_CONTAINER_NAME)s --sudo &amp;
 
 sudo docker stop %(DOCKER_CONTAINER_NAME)s || echo "docker stop %(DOCKER_CONTAINER_NAME)s ends with $?"
 sudo docker rm %(DOCKER_CONTAINER_NAME)s || echo  "docker rm %(DOCKER_CONTAINER_NAME)s ends with $?"
-sudo docker run %(DOCKER_RUN_OPTION)s -t \\
+sudo docker pull %(DOCKER_IMAGE_JENKINS)s || true
+sudo docker run %(DOCKER_RUN_OPTION)s \\
     --name %(DOCKER_CONTAINER_NAME)s \\
     -e ROS_DISTRO='%(ROS_DISTRO)s' \\
     -e USE_DEB='%(USE_DEB)s' \\
@@ -139,6 +134,7 @@ sudo docker run %(DOCKER_RUN_OPTION)s -t \\
     -e CATKIN_PARALLEL_TEST_JOBS='%(CATKIN_PARALLEL_TEST_JOBS)s' \\
     -e BUILD_PKGS='%(BUILD_PKGS)s' \\
     -e ROS_REPOSITORY_PATH='%(ROS_REPOSITORY_PATH)s'  \\
+    -e ROSDEP_ADDITIONAL_OPTIONS='%(ROSDEP_ADDITIONAL_OPTIONS)s'  \\
     -e DOCKER_RUN_OPTION='%(DOCKER_RUN_OPTION)s'  \\
     -e HOME=/workspace \\
     -v $WORKSPACE/${BUILD_TAG}:/workspace \\
@@ -147,7 +143,7 @@ sudo docker run %(DOCKER_RUN_OPTION)s -t \\
     -v /export/data1/ros_data:/workspace/.ros/data \\
     -v /export/data1/ros_test_data:/workspace/.ros/test_data \\
     -v /tmp/.X11-unix:/tmp/.X11-unix:rw \\
-    -w /workspace ros-ubuntu:%(LSB_RELEASE)s /bin/bash \\
+    -w /workspace %(DOCKER_IMAGE_JENKINS)s /bin/bash \\
     -c "$(cat &lt;&lt;EOL
 
 cd %(TRAVIS_REPO_SLUG)s
@@ -158,7 +154,7 @@ env
 mkdir log
 export ROS_LOG_DIR=\$PWD/log
 apt-get update -qq || echo Ignore error of apt-get update
-apt-get install -qq -y git wget sudo lsb-release ccache  apt-cacher-ng
+apt-get install -qq -y curl git wget sudo lsb-release ccache apt-cacher-ng patch
 
 # setup ccache
 ccache -M 20G                   # set maximum size of ccache to 20G
@@ -308,6 +304,7 @@ ROS_PARALLEL_TEST_JOBS = env.get('ROS_PARALLEL_TEST_JOBS', '')
 CATKIN_PARALLEL_TEST_JOBS = env.get('CATKIN_PARALLEL_TEST_JOBS', '')
 BUILD_PKGS = env.get('BUILD_PKGS', '')
 ROS_REPOSITORY_PATH = env.get('ROS_REPOSITORY_PATH', '')
+ROSDEP_ADDITIONAL_OPTIONS = env.get('ROSDEP_ADDITIONAL_OPTIONS', '')
 DOCKER_CONTAINER_NAME = '_'.join([TRAVIS_REPO_SLUG.replace('/','.'), TRAVIS_JOB_NUMBER])
 DOCKER_RUN_OPTION = env.get('DOCKER_RUN_OPTION', '--rm')
 NUMBER_OF_LOGS_TO_KEEP = env.get('NUMBER_OF_LOGS_TO_KEEP', '3')
@@ -338,6 +335,7 @@ ROS_PARALLEL_TEST_JOBS  = %(ROS_PARALLEL_TEST_JOBS)s
 CATKIN_PARALLEL_TEST_JOBS = %(CATKIN_PARALLEL_TEST_JOBS)s
 BUILD_PKGS       = %(BUILD_PKGS)s
 ROS_REPOSITORY_PATH = %(ROS_REPOSITORY_PATH)s
+ROSDEP_ADDITIONAL_OPTIONS = %(ROSDEP_ADDITIONAL_OPTIONS)s
 DOCKER_CONTAINER_NAME   = %(DOCKER_CONTAINER_NAME)s
 DOCKER_RUN_OPTION = %(DOCKER_RUN_OPTION)s
 NUMBER_OF_LOGS_TO_KEEP = %(NUMBER_OF_LOGS_TO_KEEP)s
@@ -347,18 +345,17 @@ REPOSITORY_NAME = %(REPOSITORY_NAME)s
 if env.get('ROS_DISTRO') == 'hydro':
     LSB_RELEASE = '12.04'
     UBUNTU_DISTRO = 'precise'
-elif env.get('ROS_DISTRO') == 'indigo':
+elif env.get('ROS_DISTRO') in ['indigo', 'jade']:
     LSB_RELEASE = '14.04'
     UBUNTU_DISTRO = 'trusty'
-elif env.get('ROS_DISTRO') == 'jade':
-    LSB_RELEASE = '14.04'
-    UBUNTU_DISTRO = 'trusty'
-elif env.get('ROS_DISTRO') == 'kinetic':
+elif env.get('ROS_DISTRO') in ['kinetic', 'lunar']:
     LSB_RELEASE = '16.04'
     UBUNTU_DISTRO = 'xenial'
 else:
     LSB_RELEASE = '14.04'
     UBUNTU_DISTRO = 'trusty'
+
+DOCKER_IMAGE_JENKINS = env.get('DOCKER_IMAGE_JENKINS', 'ros-ubuntu:%s' % LSB_RELEASE)
 
 ### start here
 j = Jenkins('http://jenkins.jsk.imi.i.u-tokyo.ac.jp:8080/', 'k-okada', '22f8b1c4812dad817381a05f41bef16b')
@@ -393,6 +390,13 @@ job_name = '-'.join(
     )
 )
 job_name = re.sub(r'[^0-9A-Za-z]+', '-', job_name)
+# filename must be within 255
+if len(job_name) >= 128 : # 'jenkins+ job_naem + TRAVIS_REPO_SLUG'
+    import hashlib
+    m = hashlib.md5()
+    m.update(job_name)
+    job_name=job_name[:128]+'-'+m.hexdigest()
+
 if j.job_exists(job_name) is None:
     j.create_job(job_name, jenkins.EMPTY_CONFIG_XML)
 
