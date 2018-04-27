@@ -2,7 +2,7 @@
 #   Generic MoveIt Travis Continuous Integration Configuration File
 #   Works with all MoveIt! repositories/branches
 #   Author: Dave Coleman, Jonathan Bohren
-language: generic
+language: c++
 cache:
   apt: true
   pip: true
@@ -12,8 +12,6 @@ sudo: required
 dist: trusty
 services:
   - docker
-matrix:
-  fast_finish: true
 notifications:
   slack: jsk-robotics:Av7tc8wj3IWkLYvlTzHE7x2g
 env:
@@ -49,6 +47,7 @@ env:
     - USE_DOCKER=true ROS_DISTRO=jade TRAVIS_REPO_SLUG=jsk-ros-pkg/jsk_travis
     - USE_DOCKER=true ROS_DISTRO=jade TRAVIS_REPO_SLUG=jsk-ros-pkg/jsk_travis TRAVIS_BRANCH=master TRAVIS_COMMIT='HEAD' TRAVIS_PULL_REQUEST='false'
     - USE_DOCKER=true ROS_DISTRO=kinetic
+    - USE_DOCKER=true ROS_DISTRO=lunar
     # gazebo
     - USE_DOCKER=true TEST_GAZEBO=true ROS_DISTRO=indigo
     - USE_DOCKER=true TEST_GAZEBO=true ROS_DISTRO=jade
@@ -56,9 +55,22 @@ env:
     - USE_JENKINS=true TEST_GAZEBO=true ROS_DISTRO=indigo
     - USE_JENKINS=true TEST_GAZEBO=true ROS_DISTRO=jade
     - USE_JENKINS=true TEST_GAZEBO=true ROS_DISTRO=kinetic
+matrix:
+  fast_finish: true
+  allow_failures:
+    - env: USE_DOCKER=true TEST_GAZEBO=true ROS_DISTRO=jade
+    - env: USE_DOCKER=true TEST_GAZEBO=true ROS_DISTRO=kinetic
+    - env: USE_JENKINS=true TEST_GAZEBO=true ROS_DISTRO=jade
+    - env: USE_JENKINS=true TEST_GAZEBO=true ROS_DISTRO=kinetic
+  include:
+    - env:
+        - USE_DOCKER=true
+        - ROS_DISTRO=kinetic
+      sudo: false
 before_script:
+  - export ROSDEP_ADDITIONAL_OPTIONS='-n -v --ignore-src' # run rosdep without -r and -v
   - mkdir .travis; cp -r * .travis # need to copy, since directory starting from . is ignoreed by catkin build
-  - export BEFORE_SCRIPT="rm -fr jsk_travis/CATKIN_IGNORE; ${BEFORE_SCRIPT}"
+  - export BEFORE_SCRIPT="rm -fr jsk_travis/CATKIN_IGNORE; git clone https://github.com/ros/ros_tutorials -b ${ROS_DISTRO}-devel;${BEFORE_SCRIPT}"
   - if [ "${USE_CATKIN_MAKE}" == "true" ] ;then sed -i 's@catkin build -i -v --limit-status-rate 0.001@catkin_make@' .travis/travis.sh; fi
   - if [ "${USE_CATKIN_MAKE}" == "true" ] ;then sed -i 's@catkin run_tests --no-deps --limit-status-rate 0.001@catkin_make run_tests@' .travis/travis.sh; fi
   - if [ "${USE_CATKIN_MAKE}" == "true" ] ;then export CATKIN_PARALLEL_JOBS="--no-color" ; fi
