@@ -1,0 +1,12 @@
+Source: ros-melodic-pddl-planner-viewer
+Section: misc
+Priority: optional
+Maintainer: Ryohei Ueda <ueda@jsk.t.u-tokyo.ac.jp>
+Build-Depends: debhelper (>= 9.0.0), ros-melodic-catkin, ros-melodic-pddl-planner
+Homepage: 
+Standards-Version: 3.9.2
+
+Package: ros-melodic-pddl-planner-viewer
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, ros-melodic-pddl-planner
+Description: a viewer of pddl_planner.
