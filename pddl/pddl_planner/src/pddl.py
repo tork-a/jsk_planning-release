@@ -1,40 +1,62 @@
 #!/usr/bin/env python
 
+import fcntl
 import rospy
 import os
 import re
-import commands
+import signal
+import subprocess as sp
+import sys
 import tempfile
+import traceback
 
-try:
-    from pddl_msgs.msg import *
-except:
-    import roslib; roslib.load_manifest('pddl_planner')
-    from pddl_msgs.msg import *
+from pddl_msgs.msg import *
 import actionlib
+
+
+class ActionPreemptedException(Exception):
+    pass
+
+
+class ParseError(Exception):
+    pass
+
+
+def read_out(out, nonblock=True):
+    if nonblock:
+        fd = out.fileno()
+        fl = fcntl.fcntl(fd, fcntl.F_GETFL)
+        fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
+    try:
+        return out.read()
+    except:
+        return str()
 
 
 class PDDLPlannerActionServer(object):
     _result = PDDLPlannerResult()
-    _feedback = PDDLPlannerFeedback()
     def __init__(self, name):
         self._action_name = name
-        self._as = actionlib.SimpleActionServer(self._action_name,
-                                                PDDLPlannerAction,
-                                                self.execute_cb)
+        self._as = actionlib.SimpleActionServer(
+            self._action_name, PDDLPlannerAction, self.execute_cb, auto_start=False)
         # resolve rosparam
         self._planner_name = rospy.get_param('~pddl_planner', 'downward')
-        self._search_option = rospy.get_param('~pddl_search_option', '')
+        search_option = rospy.get_param('~pddl_search_option', '')
+        self._search_option = search_option.strip().split()
+
+        self._as.start()
 
     def execute_cb(self, goal):
-        problem = goal.problem
-        domain = goal.domain
-        rospy.loginfo("take a message")
-        (problem_path, domain_path) = self.gen_tmp_pddl_file(problem, domain)
-        rospy.loginfo("problem_path => %s" % problem_path)
-        rospy.loginfo("domain_path => %s" % domain_path)
-        result = self.call_pddl_planner(problem_path, domain_path)
-        if result:
+        try:
+            problem = goal.problem
+            domain = goal.domain
+            max_planning_time = goal.max_planning_time.to_sec()
+            rospy.loginfo("take a message")
+            (problem_path, domain_path) = self.gen_tmp_pddl_file(problem, domain)
+            rospy.loginfo("problem_path => %s" % problem_path)
+            rospy.loginfo("domain_path => %s" % domain_path)
+            result = self.call_pddl_planner(problem_path, domain_path, max_planning_time)
+
             if self._planner_name == "lpg":
                 self._result.sequence = [PDDLStep(action = x.split(' ')[1].lstrip("\("),
                                                   args = re.search("\([^\)]+\)", x).group(0).lstrip("\(").rstrip("\)").split(' ')[1:],
@@ -48,7 +70,19 @@ class PDDLPlannerActionServer(object):
                                                   args = x.split(' ')[1:])
                                          for x in result]
             self._as.set_succeeded(self._result)
-        else:
+            rospy.loginfo("action finished with success")
+        except ActionPreemptedException:
+            rospy.loginfo("action preempted")
+            self._as.set_preempted()
+        except ParseError:
+            rospy.logerr("Failed to parse output")
+            self._as.set_aborted()
+        except RuntimeError as e:
+            rospy.logerr("Planner exited with error: %s" % e)
+            self._as.set_aborted()
+        except Exception as e:
+            rospy.logerr("Unhandled Error: %s" % e)
+            rospy.logerr(traceback.format_exc())
             self._as.set_aborted()
 
     def parse_pddl_result(self, output):
@@ -61,7 +95,7 @@ class PDDLPlannerActionServer(object):
             rospy.loginfo("result => %s" % results)
             return filter(lambda x: x != "", results)
         else:
-            return False
+            raise ParseError()
     def parse_pddl_result_ffha(self, output):
         rospy.loginfo(output)
         # dirty implementation
@@ -75,7 +109,7 @@ class PDDLPlannerActionServer(object):
             rospy.loginfo("result => %s" % results)
             return results
         else:
-            return False
+            raise ParseError()
 
     def parse_pddl_result_lpg(self, output):
         rospy.loginfo(output)
@@ -89,7 +123,7 @@ class PDDLPlannerActionServer(object):
             rospy.loginfo("result => %s" % results)
             return results
         else:
-            return False
+            raise ParseError()
 
     def parse_pddl_result_downward(self, path_name):
         plan_path = path_name
@@ -109,40 +143,98 @@ class PDDLPlannerActionServer(object):
 
         return results
 
-    def call_pddl_planner(self, problem, domain):
+    def exec_process(self, command, max_planning_time):
+        if max_planning_time > 0.0:
+            command = ["timeout", str(max_planning_time)] + command
+        rospy.loginfo("Command: %s" % " ".join(command))
+        proc = sp.Popen(command, stdout=sp.PIPE, stderr=sp.PIPE)
+        try:
+            output, error = str(), str()
+            r = rospy.Rate(10.0)
+            while True:
+                if rospy.is_shutdown():
+                    return None
+                if self._as.is_preempt_requested():
+                    raise ActionPreemptedException()
+                if proc.poll() is not None:
+                    break
+                # non-blocking read to avoid dead-lock
+                output += read_out(proc.stdout)
+                error  += read_out(proc.stderr)
+                r.sleep()
+
+            # flush output
+            data = proc.communicate()
+            output += data[0]
+            error  += data[1]
+
+            if proc.poll() not in [0, 124]:
+                # 0: normal exit
+                # 124: exited with timeout command
+                # others: process exited abnormally
+                msg  = "Output:\n" + output + "\n"
+                msg += "Error:\n" + error + "\n"
+                msg += "Exit code: {}\n".format(proc.poll())
+                raise RuntimeError(msg)
+            return output
+        finally:
+            self.kill_process(proc)
+
+    def kill_process(self, proc):
+        if proc is None or proc.poll() is not None:
+            return
+        try:
+            # 1. SIGINT
+            proc.send_signal(signal.SIGINT)
+            rospy.sleep(10.0)
+
+            if proc.poll() is not None:
+                return
+
+            # 2. Escalated to SIGTERM
+            proc.send_signal(signal.SIGTERM)
+            rospy.sleep(3.0)
+
+            if proc.poll() is not None:
+                return
+
+            # 3. Escalated to SIGKILL
+            proc.kill()
+            proc.wait()
+        except Exception as e:
+            rospy.logerr("Failed to kill process: %s" % e)
+
+
+    def call_pddl_planner(self, problem, domain, max_planning_time):
 
         if  self._planner_name == "ff":
             # -f problem -o domain
-            output = commands.getoutput("rosrun ff ff -f %s -o %s" % (problem, domain))
+            output = self.exec_process(["rosrun", "ff", "ff", "-f", problem, "-o", domain],
+                                       max_planning_time)
             return self.parse_pddl_result(output)
 
         # ffha
         elif self._planner_name == "ffha":
-            output = commands.getoutput("rosrun ffha ffha %s -f %s -o %s" % (self._search_option, problem, domain))
+            output = self.exec_process(["rosrun", "ffha", "ffha"] + self._search_option + ["-f", problem, "-o", domain],
+                                       max_planning_time)
             if re.search("final domain representation is:", output):
                 tmp = output.split("metric:")
                 if len(tmp) > 1:
                     output = tmp[1];
                 self._result.data = tmp;
             return self.parse_pddl_result_ffha(output)
-
+        # downward
         elif self._planner_name == "downward":
             (fd, path_name) = tempfile.mkstemp(text=True, prefix='plan_')
-            (status, output) = commands.getstatusoutput("rosrun downward plan %s %s %s --plan-file %s" % (domain,
-                                                                                                          problem,
-                                                                                                          self._search_option,
-                                                                                                          path_name))
+            output = self.exec_process(["rosrun", "downward", "plan", domain, problem] + self._search_option + ["--plan-file", path_name],
+                                       max_planning_time)
             rospy.loginfo(output)
-            if status == 0:
-                self._result.data = output
-                return self.parse_pddl_result_downward(path_name)
-            else:
-                return False
-
+            self._result.data = output
+            return self.parse_pddl_result_downward(path_name)
+        # lpg
         elif self._planner_name == "lpg":
-            # temporary
-            rospy.loginfo ("lpg")
-            output = commands.getoutput("rosrun lpg_planner lpg-1.2 %s -o %s -f %s" % (self._search_option, domain, problem))
+            output = self.exec_process(["rosrun", "lpg_planner", "lpg-1.2"] + self._search_option + ["-f", problem, "-o", domain],
+                                       max_planning_time)
             return self.parse_pddl_result_lpg(output)
 
         else:
@@ -160,6 +252,7 @@ class PDDLPlannerActionServer(object):
             problem_file = self.gen_tmp_problem_pddl_file(problem)
             domain_file = self.gen_tmp_durative_domain_pddl_file(domain)
             return (problem_file, domain_file)
+
     def gen_problem_objects_strings(self, objects):
         # objects = list of PDDLObject
         # PDDLObject has name and type

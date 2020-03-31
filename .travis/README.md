@@ -5,12 +5,6 @@
 
 ![](_media/jsk_travis_diagram.png)
 
-- How to update docker image on jenkins
-```
-echo -e "FROM ros-ubuntu:14.04\nRUN apt-get update\nRUN apt-get -y upgrade\nEXPOSE 22" | sudo docker build -t ros-ubuntu:14.04 -
-```
-
-
 ----------------------------------------------------------
 
 ## Where test runs
@@ -122,6 +116,16 @@ see [this document](https://github.com/jsk-ros-pkg/jsk_common#restart-travis-fro
 
   Flag to skip testing catkin install in addition to devel build.
 
+* `CMAKE_DEVELOPER_ERROR` (none or `true`, default: none)
+
+  Flag to show CMake developer error in catkin run_tests.
+
+* `ADDITIONAL_ENV_TO_DOCKER` (default: none)
+
+  Specify environment variables you want to pass to docker on travis/jenkins.
+  You can specify multiple variables separated by a space.  
+  e.g. `IS_EUSLISP_TRAVIS_TEST IS_GAZEBO_TRAVIS_TEST`
+
 ## Config Files
 
 * `.travis.rosinstall`, `.travis.rosinstall.{{ ROS_DISTRO }}`
@@ -144,6 +148,21 @@ mv CATKIN_IGNORE.bak CATKIN_IGNORE      # do not forget this
 gitk                                    # make sure that what you changed is correct
 git push && git push --tags
 ```
+
+## How to build docker images used in jenkins
+
+```
+cd docker; make
+```
+
+This will build base images for each distros, such as `ros-ubuntu:12.04-base`, `ros-ubuntu:14.04-base`, `ros-ubuntu:16.04-base` ...
+
+and PCL-installed images `ros-ubuntu:14.04-pcl`, `ros-ubuntu:16.04-pcl` ...
+
+Each images are re-build everyday by `--build-arg CACHEBUST=$(date +%%Y%%m%%d)`.
+
+Note that `ros-ubuntu:14.04` is used for build process and we do not expect users to run this package. Please use `ros-ubuntu:14.04-base` instead.
+
 
 
 ## Debug by changing the submodule jsk_travis

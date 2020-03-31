@@ -1,6 +1,6 @@
 <package>
   <name>jsk_travis</name>
-  <version>0.4.35</version>
+  <version>0.5.7</version>
   <description>jsk_travis scripts</description>
   <license>BSD</license>
   <maintainer email="k-okada@jsk.t.u-tokyo.ac.jp">Kei Okada</maintainer>
@@ -14,6 +14,11 @@
   <test_depend>rospy_tutorials</test_depend>
   <test_depend>gazebo_ros</test_depend>
   <test_depend>gazebo_plugins</test_depend>
+
+  <!-- add pip module with takes long time to install -->
+  <test_depend>python-chainer-pip</test_depend>
+  <test_depend>python-chainercv-pip</test_depend>
+  <test_depend>python-fcn-pip</test_depend>
 
   <export/>
 </package>
