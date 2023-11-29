@@ -2,6 +2,7 @@
 
 [![Join the chat at https://gitter.im/jsk-ros-pkg/jsk_travis](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/jsk-ros-pkg/jsk_travis?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 [![Build Status](https://travis-ci.org/jsk-ros-pkg/jsk_travis.svg?branch=master)](https://travis-ci.org/jsk-ros-pkg/jsk_travis)
+[![.github/workflows/main.yml](https://github.com/jsk-ros-pkg/jsk_travis/actions/workflows/main.yml/badge.svg)](https://github.com/jsk-ros-pkg/jsk_travis/actions/workflows/main.yml)
 
 ![](_media/jsk_travis_diagram.png)
 
@@ -56,6 +57,12 @@ see [this document](https://github.com/jsk-ros-pkg/jsk_common#restart-travis-fro
 
   Specify your target distribution of ROS. Now we support hydro, indigo and jade.
   If you specify indigo or jade, tests automatically run on jenkins.
+
+* `ROS_PYTHON_VERSION` (default: none)
+
+  Specify your target python version used of ROS. Available from Noetic.
+  see [Build Using Python3](http://wiki.ros.org/UsingPython3/BuildUsingPython3) and
+  [rep 149](https://github.com/ros-infrastructure/rep/blob/master/rep-0149.rst)
 
 * `USE_DEB` (value: [`true`|`false`|`source`])
 
@@ -125,6 +132,11 @@ see [this document](https://github.com/jsk-ros-pkg/jsk_common#restart-travis-fro
   Specify environment variables you want to pass to docker on travis/jenkins.
   You can specify multiple variables separated by a space.  
   e.g. `IS_EUSLISP_TRAVIS_TEST IS_GAZEBO_TRAVIS_TEST`
+
+* `DEBUG_TRAVIS_PYTHON` (default: none)
+
+  Specify python command to run within travis/docker/jenkins,
+  for example set `DEBUG_TRAVIS_PYTHON` to `python -v`
 
 ## Config Files
 

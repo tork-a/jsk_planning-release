@@ -1,27 +1,6 @@
 #!/bin/bash
 
-set -x
-
-function travis_time_start {
-    set +x
-    TRAVIS_START_TIME=$(date +%s%N)
-    TRAVIS_TIME_ID=$(cat /dev/urandom | tr -dc 'a-z0-9' | fold -w 8 | head -n 1)
-    TRAVIS_FOLD_NAME=$1
-    echo -e "${ANSI_CLEAR}traivs_fold:start:$TRAVIS_FOLD_NAME"
-    echo -e "${ANSI_CLEAR}traivs_time:start:$TRAVIS_TIME_ID${ANSI_BLUE}>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>${ANSI_RESET}"
-    set -x
-}
-function travis_time_end {
-    set +x
-    _COLOR=${1:-32}
-    TRAVIS_END_TIME=$(date +%s%N)
-    TIME_ELAPSED_SECONDS=$(( ($TRAVIS_END_TIME - $TRAVIS_START_TIME)/1000000000 ))
-    echo -e "traivs_time:end:$TRAVIS_TIME_ID:start=$TRAVIS_START_TIME,finish=$TRAVIS_END_TIME,duration=$(($TRAVIS_END_TIME - $TRAVIS_START_TIME))\n${ANSI_CLEAR}"
-    echo -e "traivs_fold:end:$TRAVIS_FOLD_NAME\e[${_COLOR}m<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<${ANSI_RESET}"
-    echo -e "${ANSI_CLEAR}\e[${_COLOR}mFunction $TRAVIS_FOLD_NAME takes $(( $TIME_ELAPSED_SECONDS / 60 )) min $(( $TIME_ELAPSED_SECONDS % 60 )) sec${ANSI_RESET}"
-    set -x
-}
-
+. $(dirname "${BASH_SOURCE[0]}")/travis_utils.sh
 
 echo "Running jsk_travis/travis.sh whose version is $(cd .travis && git describe --all)."
 
@@ -56,15 +35,14 @@ if [ "$(git diff origin/master HEAD $CI_SOURCE_PATH/.travis)" != "" ] ; then
   fi
 fi
 
-travis_time_end
-
-
 # set default values to env variables
 [ "${USE_TRAVIS// }" = "" ] && USE_TRAVIS=false
 
 # Deprecated environmental variables
 [ ! -z $BUILDER ] && [ "$BUILDER" != catkin ] && ( echo "ERROR: $BUILDER is not supported. BUILDER env is deprecated and only 'catkin' is supported for the build."; exit 1; )
 [ ! -z $ROSWS ] && [ "$ROSWS" != wstool ] && ( echo "ERROR: $ROSWS is not supported. ROSWS env is deprecated and only 'wstool' is supported for workspace management."; exit 1; )
+
+travis_time_end
 
 # docker on travis
 if [ "$USE_DOCKER" = true ]; then
@@ -74,6 +52,7 @@ if [ "$USE_DOCKER" = true ]; then
       indigo|jade) DISTRO=trusty;;
       kinetic|lunar) DISTRO=xenial;;
       melodic) DISTRO=bionic;;
+      noetic) DISTRO=focal;;
       *) DISTRO=trusty;;
     esac
     export DOCKER_IMAGE=ubuntu:$DISTRO
@@ -85,7 +64,11 @@ if [ "$USE_DOCKER" = true ]; then
   sudo apt-get update && sudo apt-get install -y apt-cacher-ng
   sudo sed -i "s@CacheDir: /var/cache/apt-cacher-ng@CacheDir: $HOME/apt-cacher-ng@" /etc/apt-cacher-ng/acng.conf
   grep CacheDir /etc/apt-cacher-ng/acng.conf
-  sudo chmod 777 $HOME/apt-cacher-ng && sudo /etc/init.d/apt-cacher-ng restart
+  # need the writable the permissions of $HOME/apt-cacher-ng
+  # https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=772489
+  sudo chown apt-cacher-ng:apt-cacher-ng $HOME/apt-cacher-ng
+  ls -al $HOME/apt-cacher-ng
+  sudo chmod a+rwx -R $HOME && sudo /etc/init.d/apt-cacher-ng restart
   ls -al /var/cache/apt-cacher-ng
   ls -al /var/cache/apt-cacher-ng/
   ls -al $HOME/apt-cacher-ng
@@ -132,34 +115,43 @@ if [ "$USE_DOCKER" = true ]; then
   docker run -v $HOME:$HOME -v $HOME/.ccache:$HOME/.ccache/ -v $HOME/.cache/pip:$HOME/.cache/pip/ \
     $DOCKER_XSERVER_OPTIONS \
     -e TRAVIS_BRANCH -e TRAVIS_COMMIT -e TRAVIS_JOB_ID -e TRAVIS_OS_NAME -e TRAVIS_PULL_REQUEST -e TRAVIS_REPO_SLUG \
+    -e GITHUB_RUN_ID \
     -e CI_SOURCE_PATH -e HOME -e REPOSITORY_NAME \
     -e BUILD_PKGS -e TARGET_PKGS -e TEST_PKGS \
     -e BEFORE_SCRIPT -e BUILDER -e EXTRA_DEB -e USE_DEB \
     -e ROS_DISTRO -e ROS_LOG_DIR -e ROS_REPOSITORY_PATH -e ROSWS \
     -e CATKIN_TOOLS_BUILD_OPTIONS -e CATKIN_TOOLS_CONFIG_OPTIONS \
     -e CATKIN_PARALLEL_JOBS -e CATKIN_PARALLEL_TEST_JOBS \
-    -e ROS_PARALLEL_JOBS -e ROS_PARALLEL_TEST_JOBS \
+    -e ROS_PARALLEL_JOBS -e ROS_PARALLEL_TEST_JOBS -e ROS_PYTHON_VERSION \
     -e ROSDEP_ADDITIONAL_OPTIONS -e ROSDEP_UPDATE_QUIET \
     -e SUDO_PIP -e USE_PYTHON_VIRTUALENV \
-    -e NOT_TEST_INSTALL \
+    -e NOT_TEST_INSTALL -e DEBUG_TRAVIS_PYTHON \
     --env-file $DOCKER_ENV_FILE \
     -t $DOCKER_IMAGE bash -c 'cd $CI_SOURCE_PATH; .travis/docker.sh'
   DOCKER_EXIT_CODE=$?
+
+  travis_time_start show_cache
   rm $DOCKER_ENV_FILE
   sudo chown -R travis.travis $HOME/apt-cacher-ng
   # sudo tail -n 100 /var/log/apt-cacher-ng/*
   # sudo find $HOME/apt-cacher-ng
   # sudo find /var/cache/apt-cacher-ng
   sudo chown -R travis.travis $HOME
-  find $HOME/.ccache    -type f
-  find $HOME/.cache/pip -type f
-  return $DOCKER_EXIT_CODE
+  # find $HOME/.ccache    -type f
+  find $HOME/.cache/pip -type f | grep whl || echo "OK"
+  travis_time_end
+  exit $DOCKER_EXIT_CODE
 fi
 
 if [ "$USE_TRAVIS" != "true" ] && [ "$ROS_DISTRO" != "hydro" -o "${USE_JENKINS}" == "true" ] && [ "$TRAVIS_JOB_ID" ]; then
-    pip install --user -U python-jenkins==1.4.0 -q
-    ./.travis/travis_jenkins.py
-    return $?
+    if [ "${DEBUG_TRAVIS_PYTHON}" != "" ]; then
+        pip --version
+        python --version
+    fi
+    pip install -U python-jenkins==1.7.0 -q
+    PYTHONIOENCODING=utf-8 ${DEBUG_TRAVIS_PYTHON} ./.travis/travis_jenkins.py
+    JENKINS_EXIT_CODE=$?
+    exit $JENKINS_EXIT_CODE
 fi
 
 function error {
@@ -171,11 +163,12 @@ function error {
 trap error ERR
 
 
-travis_time_start setup_ros
+travis_time_start setup_config
 
 # Define some config vars
 export CI_SOURCE_PATH=$(pwd)
 export REPOSITORY_NAME=${PWD##*/}
+export ROS_PYTHON_VERSION_ORIG=${ROS_PYTHON_VERSION}
 if [ ! "$ROS_PARALLEL_JOBS" ]; then export ROS_PARALLEL_JOBS="-j8";  fi
 if [ ! "$CATKIN_PARALLEL_JOBS" ]; then export CATKIN_PARALLEL_JOBS="-p4";  fi
 if [ ! "$ROS_PARALLEL_TEST_JOBS" ]; then export ROS_PARALLEL_TEST_JOBS="$ROS_PARALLEL_JOBS";  fi
@@ -184,15 +177,48 @@ if [ ! "$ROS_REPOSITORY_PATH" ]; then export ROS_REPOSITORY_PATH="http://package
 if [ ! "$ROSDEP_ADDITIONAL_OPTIONS" ]; then export ROSDEP_ADDITIONAL_OPTIONS="-n -q -r --ignore-src"; fi
 echo "Testing branch $TRAVIS_BRANCH of $REPOSITORY_NAME"
 
-# Install pip
-curl https://bootstrap.pypa.io/get-pip.py | sudo python -
-# pip>=10 no longer uninstalls distutils packages (ex. packages installed via apt),
-# and fails to install packages via pip if they are already installed via apt.
-# See https://github.com/pypa/pip/issues/4805 for detail.
-sudo -H pip install 'pip<10'
+travis_time_end
+travis_time_start setup_pip
 
+# set non interactive tzdata https://stackoverflow.com/questions/8671308/non-interactive-method-for-dpkg-reconfigure-tzdata
 # set DEBIAN_FRONTEND=noninteractive
 echo 'debconf debconf/frontend select Noninteractive' | sudo debconf-set-selections
+
+# install add-apt-repository
+sudo apt-get update
+sudo apt-get install -y -q software-properties-common
+if [[ "$ROS_DISTRO" =~ "hydro"|"indigo"|"jade" ]]; then
+    sudo apt-get install -y -q python-software-properties
+fi
+
+# Install pip
+# See https://github.com/pypa/pip/issues/4805 for detail.
+# https://github.com/pypa/pypi-support/issues/978 requires Python >= 2.7.9
+if [[ "$ROS_DISTRO" =~ "indigo"|"jade" ]]; then
+    sudo add-apt-repository -y ppa:longsleep/python2.7-backports
+    sudo apt-get update
+    sudo apt-get dist-upgrade -y
+fi
+# Note: pip 21.0, in January 2021, will remove Python 2 support
+# 12.04's pip does not support install whl
+sudo apt-get update -q || echo Ignore error of apt-get update
+sudo -E apt-get -y -qq install python python-setuptools
+curl https://files.pythonhosted.org/packages/c4/44/e6b8056b6c8f2bfd1445cc9990f478930d8e3459e9dbf5b8e2d2922d64d3/pip-9.0.3.tar.gz --output /tmp/pip-9.0.3.tar.gz
+(cd /tmp; tar -xzf pip-9.0.3.tar.gz)
+sudo -H python -m easy_install /tmp/pip-9.0.3
+if [[ ! "$ROS_DISTRO" =~ "hydro" ]]; then # on hydro:  Could not find a version that satisfies the requirement pip<10 (from versions: )
+    sudo pip install -I 'pip<10' # on melodic  reinsall pip9.0.3, otherwise it fails on, ImportError: Entry point ('console_scripts', 'pip2') not found
+fi
+
+hash -r
+pip --version || echo "pip is not installed"
+python --version || echo "python is not installed"
+# pip>=10 no longer uninstalls distutils packages (ex. packages installed via apt),
+# and fails to install packages via pip if they are already installed via apt.
+
+travis_time_end
+travis_time_start setup_ros
+
 # Setup apt
 sudo -E sh -c 'echo "deb $ROS_REPOSITORY_PATH `lsb_release -cs` main" > /etc/apt/sources.list.d/ros-latest.list'
 wget http://packages.ros.org/ros.key -O - | sudo apt-key add -
@@ -210,7 +236,9 @@ if [[ "$ROS_DISTRO" ==  "hydro" ]]; then
     sudo apt-get install -y --force-yes -q python-vcstools=0.1.40-1
     sudo apt-mark hold python-vcstools
 fi
-sudo apt-get install -y --force-yes -q -qq python-rosdep python-wstool python-catkin-tools ros-$ROS_DISTRO-rosbash ros-$ROS_DISTRO-rospack ccache pv
+# noetic uses python3-rosdep
+sudo apt-get install -y --force-yes -q -qq python-rosdep python-wstool python-catkin-tools || (sudo apt-get install -y --force-yes -q -qq python3-rosdep python3-wstool; sudo pip install catkin-tools)
+sudo apt-get install -y --force-yes -q -qq ros-$ROS_DISTRO-rosbash ros-$ROS_DISTRO-rospack ccache pv
 
 # setup catkin-tools option
 if [ ! "$CATKIN_TOOLS_BUILD_OPTIONS" ]; then
@@ -221,12 +249,30 @@ if [ ! "$CATKIN_TOOLS_BUILD_OPTIONS" ]; then
     export CATKIN_TOOLS_BUILD_OPTIONS="--summarize --no-status"
   fi
 fi
+
+travis_time_end
+travis_time_start setup_cache
+
 # setup ccache
 sudo ln -s /usr/bin/ccache /usr/local/bin/gcc
 sudo ln -s /usr/bin/ccache /usr/local/bin/g++
 sudo ln -s /usr/bin/ccache /usr/local/bin/cc
 sudo ln -s /usr/bin/ccache /usr/local/bin/c++
 ccache -s
+
+travis_time_end
+travis_time_start setup_git
+
+# check git : old linux needs newer git client ?
+# https://stackoverflow.com/questions/53207973/fatal-unknown-value-for-config-protocol-version-2
+sudo add-apt-repository -y ppa:git-core/ppa
+sudo apt-get update
+sudo apt-get install -y -q git
+git --version
+git config -l
+
+travis_time_end
+travis_time_start setup_mongo
 
 if [ "$EXTRA_DEB" ]; then sudo apt-get install -q -qq -y $EXTRA_DEB;  fi
 # MongoDB hack - I don't fully understand this but its for moveit_warehouse
@@ -245,6 +291,13 @@ rosdep --version
 if [ ! -e /etc/ros/rosdep/sources.list.d/20-default.list ]; then
     sudo rosdep init
 fi
+
+# use snapshot of rosdep list
+# https://github.com/ros/rosdistro/pull/31570#issuecomment-1000497517
+if [[ "$ROS_DISTRO" =~ "hydro"|"indigo"|"jade"|"kinetic"|"lunar" ]]; then
+    sudo rm /etc/ros/rosdep/sources.list.d/20-default.list
+    sudo wget https://gist.githubusercontent.com/cottsay/b27a46e53b8f7453bf9ff637d32ea283/raw/476b3714bb90cfbc6b8b9d068162fc6408fa7f76/30-xenial.list -O /etc/ros/rosdep/sources.list.d/30-xenial.list
+fi
 ret=1
 rosdep update --include-eol-distros|| while [ $ret != 0 ]; do sleep 1; rosdep update --include-eol-distros && ret=0 || echo "failed"; done
 
@@ -260,10 +313,12 @@ else
 fi
 sudo apt-get install -y --force-yes -q -qq ros-$ROS_DISTRO-roslaunch
 ### https://github.com/ros/ros_comm/pull/641
-(cd /opt/ros/$ROS_DISTRO/lib/python2.7/dist-packages; wget --no-check-certificate https://patch-diff.githubusercontent.com/raw/ros/ros_comm/pull/641.diff -O /tmp/641.diff; [ "$ROS_DISTRO" == "hydro" ] && sed -i s@items@iteritems@ /tmp/641.diff ; sudo patch -p4 < /tmp/641.diff)
-
+if [[ "$ROS_DISTRO" =~ "hydro"|"indigo"|"jade"|"kinetic"|"lunar"|"melodic" ]]; then
+  (cd /opt/ros/$ROS_DISTRO/lib/python2.7/dist-packages; wget --no-check-certificate https://patch-diff.githubusercontent.com/raw/ros/ros_comm/pull/641.diff -O /tmp/641.diff; if [[ "$ROS_DISTRO" == "hydro" ]]; then sed -i s@items@iteritems@ /tmp/641.diff ; fi; sudo patch -p4 < /tmp/641.diff)
+fi
 
 travis_time_end
+set -x
 
 # Check ROS tool's version
 echo -e "\e[0KROS tool's version"
@@ -291,6 +346,9 @@ if [ "$USE_DEB" == false ]; then
         # install (maybe unreleased version) dependencies from source for specific ros version
         wstool merge --merge-replace -y file://$CI_SOURCE_PATH/.travis.rosinstall.$ROS_DISTRO
     fi
+    # since https://github.blog/2021-09-01-improving-git-protocol-security-github/ we can not use git://
+    # we need to remove git:// from submodules and run wstool update again
+    wstool update || find -iname .gitmodules -exec  cat {} \; -exec sed -i s@git://github@https://github@ {} \; -exec sh -c 'cd $(dirname "$1"); git submodule sync;' sh {} \; -exec cat {} \;
     wstool update
 fi
 ln -s $CI_SOURCE_PATH . # Link the repo we are testing to the new workspace
@@ -305,6 +363,7 @@ if [ "$ROSDEP_UPDATE_QUIET" == "true" ]; then
     ROSDEP_ARGS=>/dev/null
 fi
 source /opt/ros/$ROS_DISTRO/setup.bash > /tmp/$$.x 2>&1; grep export\ [^_] /tmp/$$.x # ROS_PACKAGE_PATH is important for rosdep
+if [ "${ROS_PYTHON_VERSION_ORIG}" != "" ]; then export ROS_PYTHON_VERSION=${ROS_PYTHON_VERSION_ORIG}; fi
 
 travis_time_end
 
@@ -312,6 +371,7 @@ travis_time_start before_script
 
 ### before_script: # Use this to prepare your build for testing e.g. copy database configurations, environment variables, etc.
 source /opt/ros/$ROS_DISTRO/setup.bash > /tmp/$$.x 2>&1; grep export\ [^_] /tmp/$$.x # re-source setup.bash for setting environmet vairable for package installed via rosdep
+if [ "${ROS_PYTHON_VERSION_ORIG}" != "" ]; then export ROS_PYTHON_VERSION=${ROS_PYTHON_VERSION_ORIG}; fi
 if [ "${BEFORE_SCRIPT// }" != "" ]; then sh -c "${BEFORE_SCRIPT}"; fi
 
 travis_time_end
@@ -323,6 +383,8 @@ travis_time_start setup_pip_cache
 if [ `whoami` = travis ]; then
    sudo rm -fr /root/.cache/pip
    sudo cp -r $HOME/.cache/pip /root/.cache/
+   sudo ls -al /root/.cache/
+   sudo mkdir -p /root/.cache/pip/
    sudo chown -R root:root /root/.cache/pip/
 fi
 # Show cached PIP packages
@@ -350,6 +412,7 @@ sudo find -L /root/.cache/ | grep whl || echo "OK"
 sudo find -L $HOME/.cache/ | grep whl || echo "OK"
 
 travis_time_end
+set -x
 
 wstool --version
 wstool info -t .
@@ -359,11 +422,13 @@ travis_time_start catkin_build
 
 ### script: # All commands must exit with code 0 on success. Anything else is considered failure.
 source /opt/ros/$ROS_DISTRO/setup.bash > /tmp/$$.x 2>&1; grep export\ [^_] /tmp/$$.x # re-source setup.bash for setting environmet vairable for package installed via rosdep
+if [ "${ROS_PYTHON_VERSION_ORIG}" != "" ]; then export ROS_PYTHON_VERSION=${ROS_PYTHON_VERSION_ORIG}; fi
+
 # for catkin
 if [ "${TARGET_PKGS// }" == "" ]; then export TARGET_PKGS=`catkin_topological_order ${CI_SOURCE_PATH} --only-names`; fi
 if [ "${TEST_PKGS// }" == "" ]; then export TEST_PKGS=$( [ "${BUILD_PKGS// }" == "" ] && echo "$TARGET_PKGS" || echo "$BUILD_PKGS"); fi
-if [ -z $TRAVIS_JOB_ID ]; then
-  # on Jenkins
+if [ -z $TRAVIS_JOB_ID ] || [ ! -z $GITHUB_RUN_ID ] ; then
+  # on Jenkins or GithubAction
   catkin build $CATKIN_TOOLS_BUILD_OPTIONS $BUILD_PKGS $CATKIN_PARALLEL_JOBS --make-args $ROS_PARALLEL_JOBS --
 else
   # on Travis, the command must outputs log within 10 min to avoid failures, so the `travis_wait` is necessary.
@@ -381,14 +446,16 @@ if [ "$ROS_DISTRO" == "hydro" ]; then
 fi
 
 source devel/setup.bash > /tmp/$$.x 2>&1; grep export\ [^_] /tmp/$$.x ; rospack profile # force to update ROS_PACKAGE_PATH for rostest
+if [ "${ROS_PYTHON_VERSION_ORIG}" != "" ]; then export ROS_PYTHON_VERSION=${ROS_PYTHON_VERSION_ORIG}; fi
+
 # set -Werror=dev for developer errors (supported only fo kinetic and above)
 if [[ "$ROS_DISTRO" > "indigo" ]] && [[ "$CMAKE_DEVELOPER_ERROR" == "true" ]]; then
   CMAKE_ARGS_FLAGS="--cmake-args -Werror=dev"
 else
   CMAKE_ARGS_FLAGS=""
 fi
-if [ -z $TRAVIS_JOB_ID ]; then
-  # on Jenkins
+if [ -z $TRAVIS_JOB_ID ] || [ ! -z $GITHUB_RUN_ID ] ; then
+  # on Jenkins or GithubAction
   # suppressing the output
   # - https://github.com/catkin/catkin_tools/issues/405
   # - https://github.com/ros-planning/moveit_ci/pull/18
@@ -402,9 +469,16 @@ else
   #travis_wait 60 catkin run_tests -i --no-deps --no-status $TEST_PKGS $CATKIN_PARALLEL_TEST_JOBS --make-args $ROS_PARALLEL_TEST_JOBS $CMAKE_ARGS_FLAGS --
   travis_wait 60 catkin build --catkin-make-args run_tests -- -i --no-deps --no-status $TEST_PKGS $CATKIN_PARALLEL_TEST_JOBS --make-args $ROS_PARALLEL_TEST_JOBS $CMAKE_ARGS_FLAGS --
 fi
+
+travis_time_end
+travis_time_start catkin_test_results
+
 catkin_test_results --verbose --all build || error
 
 travis_time_end
+set -x
+
+catkin_test_results build || echo "OK"
 
 if [ "$NOT_TEST_INSTALL" != "true" ]; then
 
@@ -412,14 +486,16 @@ if [ "$NOT_TEST_INSTALL" != "true" ]; then
 
     catkin clean --yes || catkin clean -a # 0.3.1 uses -a, 0.4.0 uses --yes
     catkin config --install $CATKIN_TOOLS_CONFIG_OPTIONS
-    if [ -z $TRAVIS_JOB_ID ]; then
-      # on Jenkins
+    if [ -z $TRAVIS_JOB_ID ] || [ ! -z $GITHUB_RUN_ID ] ; then
+      # on Jenkins or GithubAction
       catkin build $CATKIN_TOOLS_BUILD_OPTIONS $BUILD_PKGS $CATKIN_PARALLEL_JOBS --make-args $ROS_PARALLEL_JOBS --
     else
       # on Travis
       travis_wait 60 catkin build $CATKIN_TOOLS_BUILD_OPTIONS $BUILD_PKGS $CATKIN_PARALLEL_JOBS --make-args $ROS_PARALLEL_JOBS --
     fi
     source install/setup.bash > /tmp/$$.x 2>&1; grep export\ [^_] /tmp/$$.x
+    if [ "${ROS_PYTHON_VERSION_ORIG}" != "" ]; then export ROS_PYTHON_VERSION=${ROS_PYTHON_VERSION_ORIG}; fi
+
     rospack profile
     rospack plugins --attrib=plugin nodelet || echo "ok"
 

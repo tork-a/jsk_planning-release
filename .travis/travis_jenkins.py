@@ -1,16 +1,22 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
 # need pip installed version of python-jenkins > 0.4.0
 
 import jenkins
 import requests
 import urllib
-import urllib2
+try:
+    import urllib2
+except:
+    import urllib.request, urllib.error
 import json
 import time
 import os
 import re
 import sys
+import random
+import string
 
 from os import environ as env
 
@@ -36,7 +42,12 @@ CONFIGURE_XML = '''<?xml version='1.0' encoding='UTF-8'?>
     <hudson.model.ParametersDefinitionProperty>
       <parameterDefinitions>
         <hudson.model.TextParameterDefinition>
-          <name>TRAVIS_JENKINS_UNIQUE_ID</name>
+          <name>TRAVIS_BRANCH</name>
+          <description></description>
+          <defaultValue></defaultValue>
+        </hudson.model.TextParameterDefinition>
+        <hudson.model.TextParameterDefinition>
+          <name>TRAVIS_COMMIT</name>
           <description></description>
           <defaultValue></defaultValue>
         </hudson.model.TextParameterDefinition>
@@ -46,7 +57,167 @@ CONFIGURE_XML = '''<?xml version='1.0' encoding='UTF-8'?>
           <defaultValue></defaultValue>
         </hudson.model.TextParameterDefinition>
         <hudson.model.TextParameterDefinition>
-          <name>TRAVIS_COMMIT</name>
+          <name>TRAVIS_REPO_SLUG</name>
+          <description></description>
+          <defaultValue></defaultValue>
+        </hudson.model.TextParameterDefinition>
+        <hudson.model.TextParameterDefinition>
+          <name>TRAVIS_BUILD_ID</name>
+          <description></description>
+          <defaultValue></defaultValue>
+        </hudson.model.TextParameterDefinition>
+        <hudson.model.TextParameterDefinition>
+          <name>TRAVIS_BUILD_NUMBER</name>
+          <description></description>
+          <defaultValue></defaultValue>
+        </hudson.model.TextParameterDefinition>
+        <hudson.model.TextParameterDefinition>
+          <name>TRAVIS_JOB_ID</name>
+          <description></description>
+          <defaultValue></defaultValue>
+        </hudson.model.TextParameterDefinition>
+        <hudson.model.TextParameterDefinition>
+          <name>TRAVIS_JOB_NUMBER</name>
+          <description></description>
+          <defaultValue></defaultValue>
+        </hudson.model.TextParameterDefinition>
+        <hudson.model.TextParameterDefinition>
+          <name>TRAVIS_JENKINS_UNIQUE_ID</name>
+          <description></description>
+          <defaultValue></defaultValue>
+        </hudson.model.TextParameterDefinition>
+        <hudson.model.TextParameterDefinition>
+          <name>ROS_DISTRO</name>
+          <description></description>
+          <defaultValue></defaultValue>
+        </hudson.model.TextParameterDefinition>
+        <hudson.model.TextParameterDefinition>
+          <name>USE_DEB</name>
+          <description></description>
+          <defaultValue></defaultValue>
+        </hudson.model.TextParameterDefinition>
+        <hudson.model.TextParameterDefinition>
+          <name>EXTRA_DEB</name>
+          <description></description>
+          <defaultValue></defaultValue>
+        </hudson.model.TextParameterDefinition>
+        <hudson.model.TextParameterDefinition>
+          <name>TEST_PKGS</name>
+          <description></description>
+          <defaultValue></defaultValue>
+        </hudson.model.TextParameterDefinition>
+        <hudson.model.TextParameterDefinition>
+          <name>TARGET_PKGS</name>
+          <description></description>
+          <defaultValue></defaultValue>
+        </hudson.model.TextParameterDefinition>
+        <hudson.model.TextParameterDefinition>
+          <name>BEFORE_SCRIPT</name>
+          <description></description>
+          <defaultValue></defaultValue>
+        </hudson.model.TextParameterDefinition>
+        <hudson.model.TextParameterDefinition>
+          <name>NOT_TEST_INSTALL</name>
+          <description></description>
+          <defaultValue></defaultValue>
+        </hudson.model.TextParameterDefinition>
+        <hudson.model.TextParameterDefinition>
+          <name>ROS_PARALLEL_JOBS</name>
+          <description></description>
+          <defaultValue></defaultValue>
+        </hudson.model.TextParameterDefinition>
+        <hudson.model.TextParameterDefinition>
+          <name>ROS_PYTHON_VERSION</name>
+          <description></description>
+          <defaultValue></defaultValue>
+        </hudson.model.TextParameterDefinition>
+        <hudson.model.TextParameterDefinition>
+          <name>CATKIN_PARALLEL_JOBS</name>
+          <description></description>
+          <defaultValue></defaultValue>
+        </hudson.model.TextParameterDefinition>
+        <hudson.model.TextParameterDefinition>
+          <name>CATKIN_TOOLS_BUILD_OPTIONS</name>
+          <description></description>
+          <defaultValue></defaultValue>
+        </hudson.model.TextParameterDefinition>
+        <hudson.model.TextParameterDefinition>
+          <name>CATKIN_TOOLS_CONFIG_OPTIONS</name>
+          <description></description>
+          <defaultValue></defaultValue>
+        </hudson.model.TextParameterDefinition>
+        <hudson.model.TextParameterDefinition>
+          <name>ROS_PARALLEL_TEST_JOBS</name>
+          <description></description>
+          <defaultValue></defaultValue>
+        </hudson.model.TextParameterDefinition>
+        <hudson.model.TextParameterDefinition>
+          <name>CATKIN_PARALLEL_TEST_JOBS</name>
+          <description></description>
+          <defaultValue></defaultValue>
+        </hudson.model.TextParameterDefinition>
+        <hudson.model.TextParameterDefinition>
+          <name>CMAKE_DEVELOPER_ERROR</name>
+          <description></description>
+          <defaultValue></defaultValue>
+        </hudson.model.TextParameterDefinition>
+        <hudson.model.TextParameterDefinition>
+          <name>BUILD_PKGS</name>
+          <description></description>
+          <defaultValue></defaultValue>
+        </hudson.model.TextParameterDefinition>
+        <hudson.model.TextParameterDefinition>
+          <name>ROS_REPOSITORY_PATH</name>
+          <description></description>
+          <defaultValue></defaultValue>
+        </hudson.model.TextParameterDefinition>
+        <hudson.model.TextParameterDefinition>
+          <name>ROSDEP_ADDITIONAL_OPTIONS</name>
+          <description></description>
+          <defaultValue></defaultValue>
+        </hudson.model.TextParameterDefinition>
+        <hudson.model.TextParameterDefinition>
+          <name>DOCKER_CONTAINER_NAME</name>
+          <description></description>
+          <defaultValue></defaultValue>
+        </hudson.model.TextParameterDefinition>
+        <hudson.model.TextParameterDefinition>
+          <name>DOCKER_RUN_OPTION</name>
+          <description></description>
+          <defaultValue></defaultValue>
+        </hudson.model.TextParameterDefinition>
+        <hudson.model.TextParameterDefinition>
+          <name>NUMBER_OF_LOGS_TO_KEEP</name>
+          <description></description>
+          <defaultValue></defaultValue>
+        </hudson.model.TextParameterDefinition>
+        <hudson.model.TextParameterDefinition>
+          <name>REPOSITORY_NAME</name>
+          <description></description>
+          <defaultValue></defaultValue>
+        </hudson.model.TextParameterDefinition>
+        <hudson.model.TextParameterDefinition>
+          <name>TRAVIS_BUILD_WEB_URL</name>
+          <description></description>
+          <defaultValue></defaultValue>
+        </hudson.model.TextParameterDefinition>
+        <hudson.model.TextParameterDefinition>
+          <name>TRAVIS_JOB_WEB_URL</name>
+          <description></description>
+          <defaultValue></defaultValue>
+        </hudson.model.TextParameterDefinition>
+        <hudson.model.TextParameterDefinition>
+          <name>DOCKER_IMAGE_JENKINS</name>
+          <description></description>
+          <defaultValue></defaultValue>
+        </hudson.model.TextParameterDefinition>
+        <hudson.model.TextParameterDefinition>
+          <name>TIMEOUT_JENKINS</name>
+          <description></description>
+          <defaultValue>120</defaultValue>
+        </hudson.model.TextParameterDefinition>
+        <hudson.model.TextParameterDefinition>
+          <name>ADD_ENV_VALUE_TO_DOCKER</name>
           <description></description>
           <defaultValue></defaultValue>
         </hudson.model.TextParameterDefinition>
@@ -64,21 +235,42 @@ CONFIGURE_XML = '''<?xml version='1.0' encoding='UTF-8'?>
   <builders>
     <hudson.tasks.Shell>
       <command>
+function travis_time_start {
+    set +x
+    TRAVIS_START_TIME=$(date +%%s%%N)
+    TRAVIS_TIME_ID=$RANDOM
+    TRAVIS_FOLD_NAME=$1
+    echo -e "${ANSI_CLEAR}traivs_fold:start:${TRAVIS_FOLD_NAME}"
+    echo -e "${ANSI_CLEAR}traivs_time:start:${TRAVIS_TIME_ID}${ANSI_BLUE}&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;${ANSI_RESET}"
+    set -x
+}
+function travis_time_end {
+    set +x
+    _COLOR=${1:-32}
+    TRAVIS_END_TIME=$(date +%%s%%N)
+    TIME_ELAPSED_SECONDS=$(( (${TRAVIS_END_TIME} - ${TRAVIS_START_TIME})/1000000000 ))
+    echo -e "traivs_time:end:${TRAVIS_TIME_ID}:start=${TRAVIS_START_TIME},finish=${TRAVIS_END_TIME},duration=$((${TRAVIS_END_TIME} - ${TRAVIS_START_TIME}))\n${ANSI_CLEAR}"
+    echo -e "traivs_fold:end:${TRAVIS_FOLD_NAME}\e[${_COLOR}m&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;${ANSI_RESET}"
+    echo -e "${ANSI_CLEAR}\e[${_COLOR}mFunction ${TRAVIS_FOLD_NAME} takes $(( ${TIME_ELAPSED_SECONDS} / 60 )) min $(( ${TIME_ELAPSED_SECONDS} %% 60 )) sec${ANSI_RESET}"
+}
+
+travis_time_start setup_jenkins
+
 set -x
 set -e
 env
 WORKSPACE=`pwd`
 [ "${BUILD_TAG}" = "" ] &amp;&amp; BUILD_TAG="build_tag" # jenkins usually has build_tag environment, note this is sh
-trap "pwd; ls -al  $WORKSPACE/${BUILD_TAG} || echo 'ok'" EXIT
+trap "set +x" EXIT
 
 # try git clone until success
-until git clone https://github.com/%(TRAVIS_REPO_SLUG)s ${BUILD_TAG}/%(TRAVIS_REPO_SLUG)s
+until git clone https://github.com/$TRAVIS_REPO_SLUG ${BUILD_TAG}/$TRAVIS_REPO_SLUG
 do
   echo "Retrying"
 done
-cd ${BUILD_TAG}/%(TRAVIS_REPO_SLUG)s
+cd ${BUILD_TAG}/$TRAVIS_REPO_SLUG
 #git fetch -q origin '+refs/pull/*:refs/remotes/pull/*'
-#git checkout -qf %(TRAVIS_COMMIT)s || git checkout -qf pull/${TRAVIS_PULL_REQUEST}/head
+#git checkout -qf $TRAVIS_COMMIT || git checkout -qf pull/${TRAVIS_PULL_REQUEST}/head
 if [ "${TRAVIS_PULL_REQUEST}" != "false" ]; then
  git fetch -q origin +refs/pull/${TRAVIS_PULL_REQUEST}/merge
  git checkout -qf FETCH_HEAD
@@ -89,84 +281,128 @@ fi
 git submodule init
 git submodule update
 
-if [ "%(REPOSITORY_NAME)s" = "jsk_travis" ]; then
+if [ "$REPOSITORY_NAME" = "jsk_travis" ]; then
   mkdir .travis; cp -r * .travis # need to copy, since directory starting from . is ignoreed by catkin build
 fi
 
-# run docker build
-docker build -t %(DOCKER_IMAGE_JENKINS)s -f $(echo .travis/docker/Dockerfile.%(DOCKER_IMAGE_JENKINS)s | sed -e s/-[^-]*\$//) .travis/docker
-docker build -t %(DOCKER_IMAGE_JENKINS)s --build-arg CACHEBUST=$(date +%%Y%%m%%d) -f .travis/docker/Dockerfile.%(DOCKER_IMAGE_JENKINS)s .travis/docker
+travis_time_end
+# travis_time_start docker_build
 
-echo "DOCKER_CONTAINER_NAME: %(DOCKER_CONTAINER_NAME)s"
-echo "TRAVIS_BRANCH        : %(TRAVIS_BRANCH)s"
-echo "TRAVIS_COMMIT        : %(TRAVIS_COMMIT)s"
-echo "TRAVIS_PULL_REQUEST  : %(TRAVIS_PULL_REQUEST)s"
-echo "TRAVIS_REPO_SLUG     : %(TRAVIS_REPO_SLUG)s"
-echo "TRAVIS_BUILD_ID      : %(TRAVIS_BUILD_ID)s"
-echo "TRAVIS_BUILD_NUMBER  : %(TRAVIS_BUILD_NUMBER)s"
-echo "TRAVIS_JOB_ID        : %(TRAVIS_JOB_ID)s"
-echo "TRAVIS_JOB_NUMBER    : %(TRAVIS_JOB_NUMBER)s"
-echo "TRAVIS_JENKINS_UNIQUE_ID : %(TRAVIS_JENKINS_UNIQUE_ID)s"
+# # run docker build
+# docker build -t $DOCKER_IMAGE_JENKINS -f $(echo .travis/docker/Dockerfile.$DOCKER_IMAGE_JENKINS | sed -e s/-[^-]*\$//) .travis/docker
+# docker build -t $DOCKER_IMAGE_JENKINS --build-arg CACHEBUST=$(date +%%Y%%m%%d) -f .travis/docker/Dockerfile.$DOCKER_IMAGE_JENKINS .travis/docker
 
+# travis_time_end
+set +x
+
+echo "DOCKER_CONTAINER_NAME: $DOCKER_CONTAINER_NAME"
+echo "TRAVIS_BRANCH        : $TRAVIS_BRANCH"
+echo "TRAVIS_COMMIT        : $TRAVIS_COMMIT"
+echo "TRAVIS_PULL_REQUEST  : $TRAVIS_PULL_REQUEST"
+echo "TRAVIS_REPO_SLUG     : $TRAVIS_REPO_SLUG"
+echo "TRAVIS_BUILD_ID      : $TRAVIS_BUILD_ID"
+echo "TRAVIS_BUILD_NUMBER  : $TRAVIS_BUILD_NUMBER"
+echo "TRAVIS_JOB_ID        : $TRAVIS_JOB_ID"
+echo "TRAVIS_JOB_NUMBER    : $TRAVIS_JOB_NUMBER"
+echo "TRAVIS_JENKINS_UNIQUE_ID : $TRAVIS_JENKINS_UNIQUE_ID"
+echo "ROS_DISTRO           : $ROS_DISTRO"
+echo "USE_DEB              : $USE_DEB"
+echo "EXTRA_DEB            : $EXTRA_DEB"
+echo "TEST_PKGS            : $TEST_PKGS"
+echo "TARGET_PKGS          : $TARGET_PKGS"
+echo "BEFORE_SCRIPT        : $BEFORE_SCRIPT"
+echo "NOT_TEST_INSTALL     : $NOT_TEST_INSTALL"
+echo "ROS_PARALLEL_JOBS    : $ROS_PARALLEL_JOBS"
+echo "ROS_PYTHON_VERSION   : $ROS_PYTHON_VERSION"
+echo "CATKIN_PARALLEL_JOBS        : $CATKIN_PARALLEL_JOBS"
+echo "CATKIN_TOOLS_BUILD_OPTIONS  : $CATKIN_TOOLS_BUILD_OPTIONS"
+echo "CATKIN_TOOLS_CONFIG_OPTIONS : $CATKIN_TOOLS_CONFIG_OPTIONS"
+echo "ROS_PARALLEL_TEST_JOBS      : $ROS_PARALLEL_TEST_JOBS"
+echo "CATKIN_PARALLEL_TEST_JOBS   : $CATKIN_PARALLEL_TEST_JOBS"
+echo "CMAKE_DEVELOPER_ERROR       : $CMAKE_DEVELOPER_ERROR"
+echo "BUILD_PKGS           : $BUILD_PKGS"
+echo "ROS_REPOSITORY_PATH  : $ROS_REPOSITORY_PATH"
+echo "ROSDEP_ADDITIONAL_OPTIONS   : $ROSDEP_ADDITIONAL_OPTIONS"
+echo "DOCKER_CONTAINER_NAME       : $DOCKER_CONTAINER_NAME"
+echo "DOCKER_RUN_OPTION           : $DOCKER_RUN_OPTION"
+echo "NUMBER_OF_LOGS_TO_KEEP      : $NUMBER_OF_LOGS_TO_KEEP"
+echo "REPOSITORY_NAME      : $REPOSITORY_NAME"
+echo "TRAVIS_BUILD_WEB_URL : $TRAVIS_BUILD_WEB_URL"
+echo "TRAVIS_JOB_WEB_URL   : $TRAVIS_JOB_WEB_URL"
+echo "DOCKER_IMAGE_JENKINS : $DOCKER_IMAGE_JENKINS"
+echo "TIMEOUT_JENKINS      : $TIMEOUT_JENKINS"
+echo "ADD_ENV_VALUE_TO_DOCKER     : $ADD_ENV_VALUE_TO_DOCKER"
+
+travis_time_start setup_cache
+
+set -x
 # run watchdog for kill orphan docker container
-.travis/travis_watchdog.py %(DOCKER_CONTAINER_NAME)s &amp;
+.travis/travis_watchdog.py $DOCKER_CONTAINER_NAME &amp;
 
 # setup cache dir
-mkdir -p /data/cache/%(ROS_DISTRO)s/ccache
-mkdir -p /data/cache/%(ROS_DISTRO)s/pip-cache
-mkdir -p /data/cache/%(ROS_DISTRO)s/ros/data
-mkdir -p /data/cache/%(ROS_DISTRO)s/ros/rosdep
+mkdir -p /data/cache/$ROS_DISTRO/ccache
+mkdir -p /data/cache/$ROS_DISTRO/pip-cache
+mkdir -p /data/cache/$ROS_DISTRO/chainer
+mkdir -p /data/cache/$ROS_DISTRO/ros/data
+mkdir -p /data/cache/$ROS_DISTRO/ros/rosdep
 
 # setup docker env-file
 DOCKER_ENV_FILE="/tmp/docker_env_file_$$"
 : > $DOCKER_ENV_FILE
-if [ "%(ADD_ENV_VALUE_TO_DOCKER)s" != "" ]; then
-  env_var_list=(`echo "%(ADD_ENV_VALUE_TO_DOCKER)s"`)
+if [ "$ADD_ENV_VALUE_TO_DOCKER" != "" ]; then
+  env_var_list=(`echo "$ADD_ENV_VALUE_TO_DOCKER"`)
   for env_var in ${env_var_list[@]}; do
     echo "$env_var" >> $DOCKER_ENV_FILE
   done
 fi
 cat $DOCKER_ENV_FILE
 
+travis_time_end
+
 #
 docker ps -a
-if [ "$(docker ps -a | grep %(DOCKER_CONTAINER_NAME)s || true)" ] ; then
-   echo "Reanaming docker container name to %(DOCKER_CONTAINER_NAME)s_%(TRAVIS_JENKINS_UNIQUE_ID)s"
-   docker rename %(DOCKER_CONTAINER_NAME)s %(DOCKER_CONTAINER_NAME)s_%(TRAVIS_JENKINS_UNIQUE_ID)s
+if [ "$(docker ps -a | grep $DOCKER_CONTAINER_NAME || true)" ] ; then
+   echo "Reanaming docker container name to $DOCKER_CONTAINER_NAME_$TRAVIS_JENKINS_UNIQUE_ID"
+   docker rename $DOCKER_CONTAINER_NAME $DOCKER_CONTAINER_NAME_$TRAVIS_JENKINS_UNIQUE_ID
 fi
-docker run %(DOCKER_RUN_OPTION)s \\
-    --name %(DOCKER_CONTAINER_NAME)s \\
-    -e ROS_DISTRO='%(ROS_DISTRO)s' \\
-    -e USE_DEB='%(USE_DEB)s' \\
-    -e TRAVIS_REPO_SLUG='%(TRAVIS_REPO_SLUG)s' \\
-    -e EXTRA_DEB='%(EXTRA_DEB)s' \\
-    -e TARGET_PKGS='%(TARGET_PKGS)s' \\
-    -e BEFORE_SCRIPT='%(BEFORE_SCRIPT)s' \\
-    -e TEST_PKGS='%(TEST_PKGS)s' \\
-    -e NOT_TEST_INSTALL='%(NOT_TEST_INSTALL)s' \\
-    -e ROS_PARALLEL_JOBS='%(ROS_PARALLEL_JOBS)s' \\
-    -e CATKIN_PARALLEL_JOBS='%(CATKIN_PARALLEL_JOBS)s' \\
-    -e CATKIN_TOOLS_BUILD_OPTIONS='%(CATKIN_TOOLS_BUILD_OPTIONS)s' \\
-    -e CATKIN_TOOLS_CONFIG_OPTIONS='%(CATKIN_TOOLS_CONFIG_OPTIONS)s' \\
-    -e ROS_PARALLEL_TEST_JOBS='%(ROS_PARALLEL_TEST_JOBS)s' \\
-    -e CATKIN_PARALLEL_TEST_JOBS='%(CATKIN_PARALLEL_TEST_JOBS)s' \\
-    -e CMAKE_DEVELOPER_ERROR='%(CMAKE_DEVELOPER_ERROR)s' \\
-    -e BUILD_PKGS='%(BUILD_PKGS)s' \\
-    -e ROS_REPOSITORY_PATH='%(ROS_REPOSITORY_PATH)s'  \\
-    -e ROSDEP_ADDITIONAL_OPTIONS='%(ROSDEP_ADDITIONAL_OPTIONS)s'  \\
-    -e DOCKER_RUN_OPTION='%(DOCKER_RUN_OPTION)s'  \\
+
+travis_time_start docker_run
+
+docker run $DOCKER_RUN_OPTION \\
+    --name $DOCKER_CONTAINER_NAME \\
+    -e ROS_DISTRO="$ROS_DISTRO" \\
+    -e USE_DEB="$USE_DEB" \\
+    -e TRAVIS_REPO_SLUG="$TRAVIS_REPO_SLUG" \\
+    -e EXTRA_DEB="$EXTRA_DEB" \\
+    -e TARGET_PKGS="$TARGET_PKGS" \\
+    -e BEFORE_SCRIPT="$BEFORE_SCRIPT" \\
+    -e TEST_PKGS="$TEST_PKGS" \\
+    -e NOT_TEST_INSTALL="$NOT_TEST_INSTALL" \\
+    -e ROS_PARALLEL_JOBS="$ROS_PARALLEL_JOBS" \\
+    -e ROS_PYTHON_VERSION="$ROS_PYTHON_VERSION" \\
+    -e CATKIN_PARALLEL_JOBS="$CATKIN_PARALLEL_JOBS" \\
+    -e CATKIN_TOOLS_BUILD_OPTIONS="$CATKIN_TOOLS_BUILD_OPTIONS" \\
+    -e CATKIN_TOOLS_CONFIG_OPTIONS="$CATKIN_TOOLS_CONFIG_OPTIONS" \\
+    -e ROS_PARALLEL_TEST_JOBS="$ROS_PARALLEL_TEST_JOBS" \\
+    -e CATKIN_PARALLEL_TEST_JOBS="$CATKIN_PARALLEL_TEST_JOBS" \\
+    -e CMAKE_DEVELOPER_ERROR="$CMAKE_DEVELOPER_ERROR" \\
+    -e BUILD_PKGS="$BUILD_PKGS" \\
+    -e ROS_REPOSITORY_PATH="$ROS_REPOSITORY_PATH" \\
+    -e ROSDEP_ADDITIONAL_OPTIONS="$ROSDEP_ADDITIONAL_OPTIONS" \\
+    -e DOCKER_RUN_OPTION="$DOCKER_RUN_OPTION" \\
     -e HOME=/workspace \\
     --env-file $DOCKER_ENV_FILE \\
     -v $WORKSPACE/${BUILD_TAG}:/workspace \\
-    -v /data/cache/%(ROS_DISTRO)s/ccache:/workspace/.ccache \\
-    -v /data/cache/%(ROS_DISTRO)s/pip-cache:/root/.cache/pip \\
-    -v /data/cache/%(ROS_DISTRO)s/ros/data:/workspace/.ros/data \\
-    -v /data/cache/%(ROS_DISTRO)s/ros/rosdep:/workspace/.ros/rosdep \\
+    -v /data/cache/$ROS_DISTRO/ccache:/workspace/.ccache \\
+    -v /data/cache/$ROS_DISTRO/pip-cache:/root/.cache/pip \\
+    -v /data/cache/$ROS_DISTRO/chainer:/workspace/.chainer \\
+    -v /data/cache/$ROS_DISTRO/ros/data:/workspace/.ros/data \\
+    -v /data/cache/$ROS_DISTRO/ros/rosdep:/workspace/.ros/rosdep \\
     -v /tmp/.X11-unix:/tmp/.X11-unix:rw \\
-    -w /workspace %(DOCKER_IMAGE_JENKINS)s /bin/bash \\
+    -w /workspace $DOCKER_IMAGE_JENKINS /bin/bash \\
     -c "$(cat &lt;&lt;EOL
 
-cd %(TRAVIS_REPO_SLUG)s
+cd $TRAVIS_REPO_SLUG
 set -x
 trap 'exit 1' ERR
 env
@@ -174,8 +410,12 @@ env
 # setup cache dir
 sudo chmod -R a+rw /root/.cache/pip
 sudo chown -R root.root /root/.cache/pip
+sudo chown -R user.jenkins /workspace/.chainer
 sudo chown -R user.jenkins /workspace/.ccache
 sudo chown -R user.jenkins /workspace/.ros
+
+# check if archive.ubuntu.com is available in this distribution
+sudo apt-get -y -qq update || if [ \$? -eq 100 ]; then sudo sed -i 's/archive.ubuntu.com/old-releases.ubuntu.com/g' /etc/apt/sources.list; fi
 
 # mkdir log dir
 mkdir log
@@ -207,7 +447,7 @@ sudo apt-get install -qq -y mesa-utils
 glxinfo | grep GLX || echo "OK"
 
 # start testing
-`cat .travis/travis.sh`
+.travis/travis.sh
 
 EOL
 )"
@@ -224,7 +464,7 @@ rm $DOCKER_ENV_FILE
     </hudson.plugins.ansicolor.AnsiColorBuildWrapper>
     <hudson.plugins.build__timeout.BuildTimeoutWrapper plugin="build-timeout@%(TIMEOUT_PLUGIN_VERSION)s">
       <strategy class="hudson.plugins.build_timeout.impl.AbsoluteTimeOutStrategy">
-        <timeoutMinutes>120</timeoutMinutes>
+        <timeoutMinutes>%(TIMEOUT_JENKINS)s</timeoutMinutes>
       </strategy>
       <operationList>
         <hudson.plugins.build__timeout.operations.FailOperation/>
@@ -272,16 +512,16 @@ def wait_for_finished(name, number):
         now = time.time() * 1000
         try:
             info = j.get_build_info(name, number)
-        except jenkins.NotFoundException, e:
+        except jenkins.NotFoundException as e:
             print('ERROR: Jenkins job name={0}, number={1} in server={2}'
-                  'not found.'.format(name, number, j.server))
+                  'not found.'.format(name, number, j.server), file=sys.stderr)
             break
-        except jenkins.JenkinsException, e:
+        except jenkins.JenkinsException as e:
             print('ERROR: Maybe Jenkins server is down. Please visit {0}'
-                  .format(j.server))
+                  .format(j.server), file=sys.stderr)
             break
-        except Exception, e:
-            print('ERROR: Unexpected error: {0}'.format(e))
+        except Exception as e:
+            print('ERROR: Unexpected error: {0}'.format(e), file=sys.stderr)
             break
         if not info['building']:
             result = info['result']
@@ -289,7 +529,7 @@ def wait_for_finished(name, number):
         # update progressbar
         progress = (now - info['timestamp']) / info['estimatedDuration']
         if loop % (display/sleep) == 0:
-            print info['url'], "building: ", info['building'], "result: ", info['result'], "progress: ", progress
+            print("{} building {}, result: {}, progress: {}".format(info['url'], info['building'], info['result'], progress), file=sys.stderr)
         time.sleep(sleep)
         loop += 1
     return result
@@ -308,7 +548,7 @@ def wait_for_building(name, number):
         except:
             pass
         if loop % (display/sleep) == 0:
-            print('wait for {} {}'.format(name, number))
+            print('wait for {} {}'.format(name, number), file=sys.stderr)
         time.sleep(sleep)
         loop += 1
 
@@ -321,7 +561,9 @@ TRAVIS_BUILD_ID = env.get('TRAVIS_BUILD_ID')
 TRAVIS_BUILD_NUMBER = env.get('TRAVIS_BUILD_NUMBER')
 TRAVIS_JOB_ID = env.get('TRAVIS_JOB_ID')
 TRAVIS_JOB_NUMBER = env.get('TRAVIS_JOB_NUMBER')
-TRAVIS_JENKINS_UNIQUE_ID = '{}.{}'.format(TRAVIS_JOB_ID,time.time())
+TRAVIS_JENKINS_UNIQUE_ID = '{}.{}.{}'.format(time.time(),TRAVIS_JOB_ID,
+                                             ''.join(random.choice(string.digits) for _ in range(16)))
+
 ROS_DISTRO = env.get('ROS_DISTRO', 'indigo')
 USE_DEB = env.get('USE_DEB', 'true')
 EXTRA_DEB = env.get('EXTRA_DEB', '')
@@ -330,6 +572,7 @@ TARGET_PKGS = env.get('TARGET_PKGS', '')
 BEFORE_SCRIPT = env.get('BEFORE_SCRIPT', '')
 NOT_TEST_INSTALL = env.get('NOT_TEST_INSTALL', '')
 ROS_PARALLEL_JOBS = env.get('ROS_PARALLEL_JOBS', '')
+ROS_PYTHON_VERSION = env.get('ROS_PYTHON_VERSION', '')
 CATKIN_PARALLEL_JOBS = env.get('CATKIN_PARALLEL_JOBS', '')
 CATKIN_TOOLS_BUILD_OPTIONS = env.get('CATKIN_TOOLS_BUILD_OPTIONS', '')
 CATKIN_TOOLS_CONFIG_OPTIONS = env.get('CATKIN_TOOLS_CONFIG_OPTIONS', '')
@@ -366,11 +609,15 @@ elif env.get('ROS_DISTRO') in ['kinetic', 'lunar']:
 elif env.get('ROS_DISTRO') in ['melodic']:
     LSB_RELEASE = '18.04'
     UBUNTU_DISTRO = 'bionic'
+elif env.get('ROS_DISTRO') in ['noetic']:
+    LSB_RELEASE = '20.04'
+    UBUNTU_DISTRO = 'focal'
 else:
     LSB_RELEASE = '14.04'
     UBUNTU_DISTRO = 'trusty'
 
 DOCKER_IMAGE_JENKINS = env.get('DOCKER_IMAGE_JENKINS', 'ros-ubuntu:%s-base' % LSB_RELEASE)
+TIMEOUT_JENKINS = env.get('TIMEOUT_JENKINS','120')
 
 print('''
 TRAVIS_BRANCH        = %(TRAVIS_BRANCH)s
@@ -390,6 +637,7 @@ TARGET_PKGS       = %(TARGET_PKGS)s
 BEFORE_SCRIPT      = %(BEFORE_SCRIPT)s
 NOT_TEST_INSTALL = %(NOT_TEST_INSTALL)s
 ROS_PARALLEL_JOBS       = %(ROS_PARALLEL_JOBS)s
+ROS_PYTHON_VERSION       = %(ROS_PYTHON_VERSION)s
 CATKIN_PARALLEL_JOBS    = %(CATKIN_PARALLEL_JOBS)s
 CATKIN_TOOLS_BUILD_OPTIONS    = %(CATKIN_TOOLS_BUILD_OPTIONS)s
 CATKIN_TOOLS_CONFIG_OPTIONS    = %(CATKIN_TOOLS_CONFIG_OPTIONS)s
@@ -406,8 +654,9 @@ REPOSITORY_NAME = %(REPOSITORY_NAME)s
 TRAVIS_BUILD_WEB_URL = %(TRAVIS_BUILD_WEB_URL)s
 TRAVIS_JOB_WEB_URL = %(TRAVIS_JOB_WEB_URL)s
 DOCKER_IMAGE_JENKINS = %(DOCKER_IMAGE_JENKINS)s
+TIMEOUT_JENKINS = %(TIMEOUT_JENKINS)s
 ADD_ENV_VALUE_TO_DOCKER = %(ADD_ENV_VALUE_TO_DOCKER)s
-''' % locals())
+''' % locals(), file=sys.stderr)
 
 ### start here
 j = Jenkins('http://jenkins.jsk.imi.i.u-tokyo.ac.jp:8080/', 'k-okada', '11402334328fd5a26f0092c1d763f67f52')
@@ -416,12 +665,12 @@ j = Jenkins('http://jenkins.jsk.imi.i.u-tokyo.ac.jp:8080/', 'k-okada', '11402334
 if j.get_plugin_info('ansicolor'):
     ANSICOLOR_PLUGIN_VERSION=j.get_plugin_info('ansicolor')['version']
 else:
-    print('you need to install ansi color plugin')
+    print('you need to install ansi color plugin', file=sys.stderr)
 # use timeout plugin
 if j.get_plugin_info('build-timeout'):
     TIMEOUT_PLUGIN_VERSION=j.get_plugin_info('build-timeout')['version']
 else:
-    print('you need to install build_timeout plugin')
+    print('you need to install build_timeout plugin', file=sys.stderr)
 # set job_name
 job_name = TRAVIS_REPO_SLUG
 
@@ -440,29 +689,68 @@ if j.job_exists(job_name) is None:
 while [item for item in j.get_queue_info() if item['task']['name'] == job_name]:
     time.sleep(10)
 # reconfigure job
+# if this fails, check https://github.com/spinnaker/spinnaker/issues/2067#issuecomment-407708770
 j.reconfig_job(job_name, CONFIGURE_XML % locals())
 
 ## get next number and run
-queue_number = j.build_job(job_name, {'TRAVIS_JENKINS_UNIQUE_ID':TRAVIS_JENKINS_UNIQUE_ID, 'TRAVIS_PULL_REQUEST':TRAVIS_PULL_REQUEST, 'TRAVIS_COMMIT':TRAVIS_COMMIT})
+queue_number = j.build_job(job_name, {
+    'TRAVIS_BRANCH':TRAVIS_BRANCH,
+    'TRAVIS_COMMIT':TRAVIS_COMMIT,
+    'TRAVIS_PULL_REQUEST':TRAVIS_PULL_REQUEST,
+    'TRAVIS_REPO_SLUG':TRAVIS_REPO_SLUG,
+    'TRAVIS_BUILD_ID':TRAVIS_BUILD_ID,
+    'TRAVIS_BUILD_NUMBER':TRAVIS_BUILD_NUMBER,
+    'TRAVIS_JOB_ID':TRAVIS_JOB_ID,
+    'TRAVIS_JOB_NUMBER':TRAVIS_JOB_NUMBER,
+    'TRAVIS_JENKINS_UNIQUE_ID':TRAVIS_JENKINS_UNIQUE_ID,
+    'ROS_DISTRO':ROS_DISTRO,
+    'USE_DEB':USE_DEB,
+    'EXTRA_DEB':EXTRA_DEB,
+    'TEST_PKGS':TEST_PKGS,
+    'TARGET_PKGS':TARGET_PKGS,
+    'BEFORE_SCRIPT':BEFORE_SCRIPT,
+    'NOT_TEST_INSTALL':NOT_TEST_INSTALL,
+    'ROS_PARALLEL_JOBS':ROS_PARALLEL_JOBS,
+    'ROS_PYTHON_VERSION':ROS_PYTHON_VERSION,
+    'CATKIN_PARALLEL_JOBS':CATKIN_PARALLEL_JOBS,
+    'CATKIN_TOOLS_BUILD_OPTIONS':CATKIN_TOOLS_BUILD_OPTIONS,
+    'CATKIN_TOOLS_CONFIG_OPTIONS':CATKIN_TOOLS_CONFIG_OPTIONS,
+    'ROS_PARALLEL_TEST_JOBS':ROS_PARALLEL_TEST_JOBS,
+    'CATKIN_PARALLEL_TEST_JOBS':CATKIN_PARALLEL_TEST_JOBS,
+    'CMAKE_DEVELOPER_ERROR':CMAKE_DEVELOPER_ERROR,
+    'BUILD_PKGS':BUILD_PKGS,
+    'ROS_REPOSITORY_PATH':ROS_REPOSITORY_PATH,
+    'ROSDEP_ADDITIONAL_OPTIONS':ROSDEP_ADDITIONAL_OPTIONS,
+    'DOCKER_CONTAINER_NAME':DOCKER_CONTAINER_NAME,
+    'DOCKER_RUN_OPTION':DOCKER_RUN_OPTION,
+    'NUMBER_OF_LOGS_TO_KEEP':NUMBER_OF_LOGS_TO_KEEP,
+    'REPOSITORY_NAME':REPOSITORY_NAME,
+    'TRAVIS_BUILD_WEB_URL':TRAVIS_BUILD_WEB_URL,
+    'TRAVIS_JOB_WEB_URL':TRAVIS_JOB_WEB_URL,
+    'DOCKER_IMAGE_JENKINS':DOCKER_IMAGE_JENKINS,
+    'TIMEOUT_JENKINS':TIMEOUT_JENKINS,
+    'ADD_ENV_VALUE_TO_DOCKER':ADD_ENV_VALUE_TO_DOCKER
+})
 
 # wait for queueing
 while True:
     message = j.get_queue_item(queue_number)['why']
     if message is None:
         break
-    print("wait for queueing ... {} ".format(message.encode('utf-8')))
+    print("wait for queueing ... {} ".format(message.encode('utf-8')), file=sys.stderr)
     time.sleep(3)
 
 # wait for execution
 while True:
     item = j.get_queue_item(queue_number)
-    if item.has_key('executable'):
+    if isinstance(item, dict) and 'executable' in item:
         item = item['executable']
-        break;
-    print("wait for execution....", item)
+        if isinstance(item, dict) and 'number' in item:
+            break;
+    print("wait for execution.... {}".format(item), file=sys.stderr)
     time.sleep(10)
 build_number = item['number']
-print('build number is {}'.format(build_number))
+print('build number is {}'.format(build_number), file=sys.stderr)
 
 ## configure description
 if TRAVIS_PULL_REQUEST != 'false':
@@ -496,6 +784,7 @@ TARGET_PKGS       = %(TARGET_PKGS)s <br> \
 BEFORE_SCRIPT      = %(BEFORE_SCRIPT)s <br> \
 NOT_TEST_INSTALL = %(NOT_TEST_INSTALL)s <br> \
 ROS_PARALLEL_JOBS       = %(ROS_PARALLEL_JOBS)s <br> \
+ROS_PYTHON_VERSION       = %(ROS_PYTHON_VERSION)s <br> \
 CATKIN_PARALLEL_JOBS    = %(CATKIN_PARALLEL_JOBS)s <br> \
 CATKIN_TOOLS_BUILD_OPTIONS    = %(CATKIN_TOOLS_BUILD_OPTIONS)s <br> \
 CATKIN_TOOLS_CONFIG_OPTIONS    = %(CATKIN_TOOLS_CONFIG_OPTIONS)s <br> \
@@ -512,6 +801,7 @@ REPOSITORY_NAME = %(REPOSITORY_NAME)s <br> \
 TRAVIS_BUILD_WEB_URL = %(TRAVIS_BUILD_WEB_URL)s <br> \
 TRAVIS_JOB_WEB_URL = %(TRAVIS_JOB_WEB_URL)s <br> \
 DOCKER_IMAGE_JENKINS = %(DOCKER_IMAGE_JENKINS)s <br> \
+TIMEOUT_JENKINS = %(TIMEOUT_JENKINS)s <br> \
 ADD_ENV_VALUE_TO_DOCKER = %(ADD_ENV_VALUE_TO_DOCKER)s <br> \
 ') % locals())
 
@@ -519,10 +809,10 @@ ADD_ENV_VALUE_TO_DOCKER = %(ADD_ENV_VALUE_TO_DOCKER)s <br> \
 result = wait_for_finished(job_name, build_number)
 
 ## show console
-print j.get_build_console_output(job_name, build_number)
-print "======================================="
-print j.get_build_info(job_name, build_number)['url']
-print "======================================="
+print (u"{}".format(j.get_build_console_output(job_name, build_number)), file=sys.stderr)
+print (u"=======================================", file=sys.stderr)
+print (u"{}".format(j.get_build_info(job_name, build_number)['url']), file=sys.stderr)
+print (u"=======================================", file=sys.stderr)
 if result == "SUCCESS" :
     exit(0)
 else:
