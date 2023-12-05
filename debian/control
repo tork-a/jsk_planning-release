@@ -1,0 +1,12 @@
+Source: ros-noetic-jsk-planning
+Section: misc
+Priority: optional
+Maintainer: Kei Okada <k-okada@jsk.t.u-tokyo.ac.jp>
+Build-Depends: debhelper (>= 9.0.0), ros-noetic-catkin
+Homepage: http://ros.org/wiki/jsk_planning
+Standards-Version: 3.9.2
+
+Package: ros-noetic-jsk-planning
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, ros-noetic-pddl-msgs, ros-noetic-pddl-planner, ros-noetic-pddl-planner-viewer, ros-noetic-task-compiler
+Description: Metapackage that contains planning package for jsk-ros-pkg
