@@ -2,6 +2,9 @@
 Changelog for package task_compiler
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.1.14 (2023-12-05)
+-------------------
+
 0.1.13 (2023-11-29)
 -------------------
 * [task_compiler/samples/failure-recovery-sample]suppress warnings (`#82 <https://github.com/jsk-ros-pkg/jsk_planning/issues/82>`_)
