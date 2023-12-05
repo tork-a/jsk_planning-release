@@ -1,0 +1,8 @@
+# download LPG planner (http://lpg.unibs.it/lpg/lpgtd-1_4-linux.tar.gz) from https://lpg.unibs.it/lpg/register-lpg-td.php
+#
+
+./LPG-td-1.4/lpg-td -o block-domain.pddl -f block-problem.pddl  -n 1
+./LPG-td-1.4/lpg-td -o coe-domain.pddl -f coe-problem.pddl -n 1
+
+
+
